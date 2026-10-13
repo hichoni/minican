@@ -12,6 +12,7 @@
 // 프로젝트마다 다른 것(글꼴 목록, 어떤 그림 주소를 믿을지, 카드 비율, 개수 한도)은 configure() 로 한 번 정해 둔다.
 import { SHAPE_ASSETS, SHAPE_GROUPS, shapeAsset } from './shapes.js';
 import { isArtId, artColorable, artAspect, artPack, artName } from './art.js';
+import { isYouTubeId, ytStart, ytTime } from './youtube.js';
 import { ENTER_IDS, COMBO_IDS, TRANSITION_IDS, STILL } from './motion.js';
 
 export { SHAPE_GROUPS };
@@ -279,6 +280,15 @@ export function cleanItem(item, { keepSpaces = false } = {}) {
     if (artColorable(it.art)) out.color = cleanColor(it.color, '#1d2433');
     return out;
   }
+  if (it.t === 'yt') {
+    // 유튜브 영상(youtube.js): 영상의 이름표와 시작 시각만 저장한다. 뒤집지 않는다(글자가 거꾸로 보이므로).
+    if (!isYouTubeId(it.yt)) return null;
+    const out = { t: 'yt', ...base, w: num(it.w, SIZE.min, SIZE.max, 60), h: num(it.h, 0.6, SIZE.max, 60), yt: it.yt };
+    const start = ytStart(it.start);
+    if (start) out.start = start;
+    if (it.auto === true) out.auto = true;          // 발표할 때 장이 열리면 바로 튼다(아니면 스페이스 바를 누를 때)
+    return out;
+  }
   if (it.t === 'image') {
     const img = cleanImg(it);
     if (!img) return null;
@@ -429,6 +439,11 @@ export function newArt(id, extra = {}) {
   if (!pack) return null;
   const w = pack.w;
   return cleanItem({ t: 'art', x: 50, y: 50, art: id, w, h: tall(w / artAspect(id)), ...(pack.color ? { color: '#1d2433' } : {}), ...extra });
+}
+/** 유튜브 영상(youtube.js): 카드 너비의 60% 로, 16:9 비율을 지켜 가운데에 놓는다. 모르는 이름표면 null. */
+export function newYouTube(id, { start = 0, ...extra } = {}) {
+  if (!isYouTubeId(id)) return null;
+  return cleanItem({ t: 'yt', x: 50, y: 50, yt: id, start, w: 60, h: tall(60 * 9 / 16), ...extra });
 }
 /** 선의 굵기(카드 너비를 100 으로 본 값). 막대는 1~15 단계이고 한 단계가 step 이다. */
 export const THICK = { min: 0.8, max: 6.4, step: 0.4 };
@@ -599,6 +614,7 @@ export function itemLabel(it) {
   if (it.t === 'emoji') return `그래픽 ${it.ch}`;
   if (it.t === 'shape') return `도형: ${SHAPES.find((s) => s.id === it.shape)?.name || '네모'}`;
   if (it.t === 'art') return `그림: ${artName(it.art) || it.art.slice(3)}`;
+  if (it.t === 'yt') return `유튜브 영상${it.start ? ` (${ytTime(it.start)}부터)` : ''}`;
   return '사진';
 }
 
@@ -758,9 +774,9 @@ export function reshapeItems(items, from, to, { fit = false } = {}) {
     if (fit) {
       next = { ...it, x: (left + s * (it.x / 100)) * 100, y: (top + s * (it.y / 100) / a) * b * 100, w: it.w * s };
       if (it.t === 'text') next.size = it.size * s;
-      if (it.t === 'shape' || it.t === 'image' || it.t === 'art') next.h = it.h * k * s;
+      if (it.t === 'shape' || it.t === 'image' || it.t === 'art' || it.t === 'yt') next.h = it.h * k * s;
       if (it.line) next.line = it.line * s;      // 테두리도 같은 비율로 가늘어진다(둥글기는 % 라 그대로)
-    } else if (it.t === 'shape' || it.t === 'image' || it.t === 'art') {
+    } else if (it.t === 'shape' || it.t === 'image' || it.t === 'art' || it.t === 'yt') {
       next = { ...it, h: it.h * k };
     }
     if (next === it) return it;

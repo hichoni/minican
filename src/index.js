@@ -5,7 +5,8 @@
 //   <link rel="stylesheet" href="./minicanva/minicanva.css">
 
 export { createEditor } from './editor.js';
-export { designView, itemView, shapeThumb } from './render.js';
+export { designView, itemView, shapeThumb, youTubePlayers } from './render.js';
+export { isYouTubeId, parseYouTube, ytStart, ytThumb, ytWatch, ytEmbed, ytTime, YT_MAX_START, YT_ORIGIN } from './youtube.js';
 export { SHAPE_ASSETS, shapeAsset, shapeSvg } from './shapes.js';
 export { ICONS, icon, iconSvg } from './icons.js';
 export { designToBlob, designToCanvas, designSheet } from './export.js';

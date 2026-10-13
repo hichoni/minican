@@ -598,3 +598,21 @@
   .fe-app-stage { top: calc(var(--fe-sticky-top, 8px) + 112px); }
   .fe-app-stage .fe-stage { max-width: min(560px, calc(100vh - 142px - var(--fe-sticky-top, 8px))); }
 }
+
+/* 유튜브 영상: 썸네일 위에 재생 단추. 썸네일이 없으면 어두운 판에 단추만(그림 파일로 만들 때 썸네일을 받지 못한 경우). */
+.fi-yt { display: grid; place-items: center; overflow: hidden; border-radius: 1.4cqw; background: #0f0f0f; }
+.fi-yt-thumb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.fi-yt-play { position: relative; display: block; width: 17%; min-width: 22px; max-width: 120px; aspect-ratio: 68 / 48; pointer-events: none; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .35)); }
+.fi-yt-play svg { display: block; width: 100%; height: 100%; }
+/* 발표 화면: 영상은 덮개(썸네일 · 재생 단추) 밑에서 미리 불러 두고, 틀면 덮개를 걷는다. */
+.fi-yt-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.fi-yt.live:not(.started) { cursor: pointer; }
+.fi-yt.live:not(.started) .fi-yt-thumb { z-index: 1; }
+.fi-yt.live:not(.started) .fi-yt-play { z-index: 2; }
+.fi-yt.live:not(.started):hover .fi-yt-play { transform: scale(1.08); }
+.fi-yt.started .fi-yt-thumb, .fi-yt.started .fi-yt-play { display: none; }
+.fi-yt.live:not(.started) .fi-yt-frame { visibility: hidden; }
+.fe-yt-add { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--fe-line); }
+.fe-yt-row { flex-wrap: nowrap; }
+.fe-panel input.fe-yt-input, .fe-panel input.fe-yt-start { flex: 1 1 auto; min-width: 0; }
+.fe-panel input.fe-yt-start { max-width: 110px; }

@@ -6,7 +6,7 @@
 import { el, toast } from './dom.js';
 import {
   COLORS, SHAPES, SHAPE_GROUPS, MASKS, OPACITY, TEXT_PRESETS, settings, configure, reshapeItems, backgroundOf, fontList, fontFamilyOf, layoutList,
-  cleanBg, cleanItems, cleanDesign, emptyDesign, cleanItem, cleanImg, moveLayer, newPresetText, newEmoji, newShape, newArt, newPhoto, moveItem, scaleItem, widenItem, heightenItem, rotateItem,
+  cleanBg, cleanItems, cleanDesign, emptyDesign, cleanItem, cleanImg, moveLayer, newPresetText, newEmoji, newShape, newArt, newYouTube, newPhoto, moveItem, scaleItem, widenItem, heightenItem, rotateItem,
   designMotion, reorder, duplicateItem, pasteItem, itemLabel, sizeOf, resizeTo, sizeRange, alignItem, coverItem, layoutItems, EDGE, canEdge, canRound, cornerOf, THICK, isLine, thickOf, thicken,
   designVideo, cleanVideo, trimVideo, videoSeconds, videoTime, VIDEO_FITS, MIN_VIDEO, rebaseItems, alignBoxes, distributeBoxes, clampShift, scaleItems, regroup, newGroupId,
 } from './model.js';
@@ -16,6 +16,7 @@ import { ART_PACKS, artSvg, artColorable, artReady, loadArt, searchArt } from '.
 import { designView, itemView, placeItem, paintCard, shapeThumb } from './render.js';
 import { sceneView, scenePlayer, keepScene, probeVideo, ACCEPT_VIDEOS } from './scene.js';
 import { icon } from './icons.js';
+import { parseYouTube, ytStart, ytTime, ytWatch } from './youtube.js';
 import { ACCEPT_IMAGES, PHOTO_EDGE, readPixels, canvasToPng, shrinkImage } from './images.js';
 import { fontReady } from './fonts.js';
 import { TOLERANCE, colorAlpha, prepareAlpha, finishCutout, resizeMask, plainBorder } from './cutout.js';
@@ -39,7 +40,7 @@ const VIDEO_TAB = ['video', 'video', '영상', '이 장의 바탕에 영상을 �
 const VIDEO_LIMITS = { maxSeconds: 60, maxFileSeconds: 300, maxBytes: 200 * 1024 * 1024 };
 const ALIGN_NAME = { l: '왼쪽', c: '가운데', r: '오른쪽' };
 const ALIGN_ICON = { l: 'alignL', c: 'alignC', r: 'alignR' };
-const ITEM_ICON = { text: 'text', emoji: 'shapes', shape: 'shapes', art: 'shapes', image: 'image' };
+const ITEM_ICON = { text: 'text', emoji: 'shapes', shape: 'shapes', art: 'shapes', image: 'image', yt: 'video' };
 const NEXT_ALIGN = { l: 'c', c: 'r', r: 'l' };
 const LONG_PRESS = 550;       // 손가락으로 이만큼(ms) 누르고 있으면 오른쪽 누르기 메뉴가 열린다
 // 복사해 둔 요소들(이 화면 안에서만 쓰는 클립보드. 다른 카드에 붙여 넣을 수 있다). 여럿을 함께 복사하면 여럿이 들어 있다.
@@ -998,7 +999,7 @@ export function createEditor({
           row('toBack', '맨 뒤로', '', () => order('bottom', { keepOpen: false }), { disabled: sel === 0 }),
         ],
         // 글상자는 뒤집지 않는다(도구 막대와 같은 기준)
-        it.t === 'text' ? [] : [
+        it.t === 'text' || it.t === 'yt' ? [] : [
           row('flipH', '좌우 뒤집기', '', () => change({ fx: !cur().fx }, { keepPop: false })),
           row('flipV', '상하 뒤집기', '', () => change({ fy: !cur().fy }, { keepPop: false })),
         ],
@@ -1212,6 +1213,14 @@ export function createEditor({
     if (editing >= 0 && e.target === nodes[editing]) endEdit();
   });
   // 붙여 넣을 때는 글자만 넣는다(다른 곳에서 복사한 꾸밈이나 그림이 따라 들어오지 않게).
+  // 글을 고치는 중이 아니면: 붙여 넣은 글이 유튜브 주소면 영상을 놓는다.
+  stage.addEventListener('paste', (e) => {
+    if (editing >= 0 || cam) return;
+    const text = e.clipboardData?.getData('text/plain') || '';
+    e.preventDefault();
+    if (parseYouTube(text)) addYouTube(text);
+    else notify('먼저 요소를 복사해요 (오른쪽 누르기 → 복사). 유튜브 주소를 붙여 넣으면 영상이 들어가요.', 4000);
+  });
   cardEl.addEventListener('paste', (e) => {
     if (editing < 0) return;
     e.preventDefault();
@@ -1488,7 +1497,8 @@ export function createEditor({
     if (mod && key === 'KeyZ') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (mod && key === 'KeyY') { e.preventDefault(); redo(); return; }
     if (e.key === 'Escape' && pop) { e.preventDefault(); toggle(pop); return; }
-    if (mod && key === 'KeyV') { e.preventDefault(); clipPaste(); return; }
+    // 복사해 둔 요소가 없으면 브라우저의 붙여넣기에 맡긴다(유튜브 주소를 붙여 넣으면 영상이 놓인다: 아래의 paste).
+    if (mod && key === 'KeyV') { if (!clipboard?.length) return; e.preventDefault(); clipPaste(); return; }
     // 메뉴 글쇠(또는 Shift+F10): 고른 요소의 가운데(없으면 카드 가운데)에서 메뉴를 연다.
     if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
       e.preventDefault();
@@ -2061,6 +2071,11 @@ export function createEditor({
         ink.style.background = it.color;
         own.push(tb([icon('palette'), el('span', { class: 'fe-lbl', text: '색' }), ink], () => toggle('color'), { title: '그림 색', name: '그림 색', on: pop === 'color', cls: 'has-pop color' }));
       }
+    } else if (it.t === 'yt') {
+      // 유튜브 영상: 발표할 때 누르면 그 자리에서 틀어진다. 시작 시각을 정하고, 유튜브에서 미리 볼 수 있다.
+      own.push(
+        pick('play', it.start ? `${ytTime(it.start)}부터` : '재생 설정', 'ytstart', { title: '어디서부터, 언제 틀지 정해요' }),
+        tb(lab('screen', '유튜브에서 보기'), () => window.open(ytWatch(it.yt, it.start || 0), '_blank', 'noopener'), { title: '새 탭에서 이 영상을 열어요', name: '유튜브에서 보기', cls: 'yt-open' }));
     } else {
       own.push(
         tb(lab('eraser', '배경 제거'), () => (pop === 'cut' ? toggle('cut') : openCut()), { on: pop === 'cut', title: '사진의 배경을 투명하게 지워요', name: '배경 제거', cls: 'has-pop cut' }),
@@ -2076,7 +2091,7 @@ export function createEditor({
       el('span', { class: 'fe-sep' }),
       group('배치',
         it.t === 'text' ? null : pick('resize', '크기', 'size', { title: '요소의 크기 (가로세로 비율은 그대로)' }),      // 텍스트는 − 숫자 + 로 바꾼다
-        it.t === 'text' ? null : pick('flipH', '뒤집기', 'flip', { title: '좌우·상하 뒤집기, 바로 세우기' }),
+        it.t === 'text' || it.t === 'yt' ? null : pick('flipH', '뒤집기', 'flip', { title: '좌우·상하 뒤집기, 바로 세우기' }),
         pick('layers', '위치', 'pos', { title: '겹치는 순서와 페이지 정렬' })),
       el('span', { class: 'fe-sep' }),
       group('작업',
@@ -2116,7 +2131,7 @@ export function createEditor({
     if (pop === 'color' && canEdge(it)) {
       body = [el('div', { class: 'fe-poshead', text: '채우기 색' }),
         swatches(it.hollow ? '' : it.color, fillWith, { none: true, noneName: '채우기 없음 (테두리만)', label: '채우기 색' })];
-    } else if (pop === 'color' && it.t !== 'image' && it.t !== 'emoji' && (it.t !== 'art' || it.color)) {
+    } else if (pop === 'color' && it.t !== 'image' && it.t !== 'emoji' && it.t !== 'yt' && (it.t !== 'art' || it.color)) {
       const label = it.t === 'text' ? '글자 색' : it.t === 'art' ? '그림 색' : '도형 색';
       body = [el('div', { class: 'fe-poshead', text: label }), swatches(it.color, (hex) => change({ color: hex }), { label })];
     } else if (pop === 'edge' && canEdge(it)) {
@@ -2141,7 +2156,9 @@ export function createEditor({
     } else if (pop === 'op') {
       body = [slider('투명도', it.op, { ...OPACITY, step: 5 }, (c, v) => ({ ...c, op: v }), '%'),
         el('p', { class: 'fe-note', text: '100% 는 또렷하고, 낮출수록 뒤가 비쳐 보여요.' })];
-    } else if (pop === 'flip' && it.t !== 'text') {
+    } else if (pop === 'ytstart' && it.t === 'yt') {
+      body = ytStartBody(it);
+    } else if (pop === 'flip' && it.t !== 'text' && it.t !== 'yt') {
       body = [
         el('div', { class: 'fe-poshead', text: '뒤집기' }),
         el('div', { class: 'fe-grid two' },
@@ -2549,6 +2566,7 @@ export function createEditor({
         el('p', { class: 'fe-note', text: `PNG·JPG 사진이나 그림을 올려요. 이 카드에 ${photos}/${settings().maxPhotos}장 있어요.` }),
         el('p', { class: 'fe-note', text: '올린 사진을 누르면 도구 막대에서 배경 제거, 테두리 모양, 크기, 투명도, 뒤집기를 쓸 수 있어요.' }),
         el('p', { class: 'fe-note', text: '내가 찍거나 그린 것, 허락을 받은 것만 올리고, 얼굴·이름 같은 개인 정보가 없는지 살펴봐요.' }),
+        ytAdder(),
       ];
     }
     if (tab === 'bg') return [bgPicker(), el('p', { class: 'fe-note', text: bgNote })];
@@ -2687,6 +2705,43 @@ export function createEditor({
   }
 
   // 업로드 칸(올린 파일 목록을 쓸 때): 올리기 단추 → 올린 파일들(새것부터) → 안내.
+  // ---------- 유튜브 영상 넣기 ----------
+  // 주소를 붙여 넣으면 카드 가운데에 영상이 놓인다(영상의 이름표와 시작 시각만 저장한다). 발표할 때 누르면 그 자리에서 틀어진다.
+  function addYouTube(text) {
+    const found = parseYouTube(text);
+    if (!found) { notify('유튜브 영상 주소가 아니에요. 유튜브에서 "공유 → 복사"한 주소를 붙여 넣어요.', 4500); return false; }
+    add(newYouTube(found.id, { start: found.start || 0 }));
+    notify(found.start ? `유튜브 영상을 넣었어요. ${ytTime(found.start)}부터 틀어져요.` : '유튜브 영상을 넣었어요. 발표할 때 누르면 틀어져요.', 3500);
+    return true;
+  }
+  function ytAdder() {
+    const input = el('input', {
+      class: 'fe-search fe-yt-input', type: 'url', inputmode: 'url', placeholder: 'https://youtu.be/…', 'aria-label': '유튜브 영상 주소', autocomplete: 'off', spellcheck: 'false',
+      onKeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } },
+    });
+    const go = () => { if (addYouTube(input.value)) input.value = ''; };
+    return el('div', { class: 'fe-yt-add', role: 'group', 'aria-label': '유튜브 영상 넣기' },
+      el('div', { class: 'fe-head', text: '유튜브 영상' }),
+      el('div', { class: 'fe-row fe-yt-row' }, input, el('button', { class: 'fe-btn', type: 'button', onClick: go }, icon('plus'), '넣기')),
+      el('p', { class: 'fe-note', text: '유튜브의 "공유 → 복사" 주소를 붙여 넣어요. 꾸미기 판에서 Ctrl+V 로 붙여 넣어도 돼요. 발표할 때 누르면 그 자리에서 틀어져요(인터넷 필요).' }));
+  }
+  // 시작 시각 칸: "1:30" · "90" · "1m30s" 를 받는다. 비우면 처음부터.
+  function ytStartBody(it) {
+    const input = el('input', { class: 'fe-search fe-yt-start', type: 'text', inputmode: 'numeric', value: it.start ? ytTime(it.start) : '', placeholder: '0:00', 'aria-label': '시작 시각' });
+    const apply = () => change({ start: ytStart(input.value) });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+    return [
+      el('div', { class: 'fe-poshead', text: '시작 시각' }),
+      el('div', { class: 'fe-row' }, input, pbtn('정하기', apply), pbtn('처음부터', () => change({ start: 0 }), { disabled: !it.start })),
+      el('p', { class: 'fe-note', text: '예: 1:30 이면 1분 30초부터 틀어져요.' }),
+      el('div', { class: 'fe-poshead', text: '발표할 때' }),
+      el('div', { class: 'fe-grid two' },
+        pbtn('스페이스 바로 틀기', () => change({ auto: false }), { 'aria-pressed': String(!it.auto), class: `fe-btn${it.auto ? '' : ' on'}` }),
+        pbtn('장이 열리면 바로 틀기', () => change({ auto: true }), { 'aria-pressed': String(!!it.auto), class: `fe-btn${it.auto ? ' on' : ''}` })),
+      el('p', { class: 'fe-note', text: '발표 중 스페이스 바: 영상 틀기 → 멈추기 → 다시 틀기. 다음 장은 → 글쇠나 화면 누르기로 넘어가요.' }),
+    ];
+  }
+
   function uploadBody() {
     const files = keepUploads();
     const max = settings().maxUploads;
@@ -2740,6 +2795,7 @@ export function createEditor({
       files.length ? el('p', { class: 'fe-note', text: `누르면 카드에 놓여요(한 장에 ${settings().maxPhotos}장까지). 여러 번 넣어도 올린 파일은 하나예요.` }) : null,
       el('p', { class: 'fe-note', text: '놓은 사진을 누르면 도구 막대에서 배경 제거, 테두리 모양, 크기, 투명도, 뒤집기를 쓸 수 있어요.' }),
       el('p', { class: 'fe-note', text: '내가 찍거나 그린 것, 허락을 받은 것만 올리고, 얼굴·이름 같은 개인 정보가 없는지 살펴봐요.' }),
+      ytAdder(),
     ];
   }
 

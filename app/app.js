@@ -7,7 +7,7 @@ import { el, toast, openModal, closeModal } from './ui.js';
 import { onbatangLogo } from './brand.js';
 import {
   createEditor, designView, designToBlob, configure, settings, reshapeItems, layoutList, layoutItems, icon, cleanDesign, hasMotion, playDesign, playTransition,
-  COMBOS, TRANSITIONS, designsToVideo, canMakeVideo, canFilmScenes, filmPlan, MAX_FILM_SECONDS, videoSize, STAYS, DEFAULT_STAY, scenePlayer, dropScene, sceneUrl,
+  COMBOS, TRANSITIONS, designsToVideo, canMakeVideo, canFilmScenes, filmPlan, MAX_FILM_SECONDS, videoSize, STAYS, DEFAULT_STAY, scenePlayer, dropScene, sceneUrl, youTubePlayers,
   fontFamilyOf, fontList,
 } from '../src/index.js';
 import { HERO_ART, HERO_VIEW } from './hero-art.js';
@@ -736,11 +736,17 @@ function present(O) {
   let film = null;           // 지금 장의 영상 조종기(영상 장면이 없는 장이면 null)
   let filmTimer = 0;
   const films = new WeakMap();      // 장(그린 요소) → 그 장의 영상 조종기
+  // 유튜브 영상(장마다 미리 불러 둔다): 스페이스 바로 튼다(누를 때 나오는 요소들 다음 차례). 틀고 있는 동안 스페이스 바는 멈추기·다시 틀기다.
+  const tubes = new WeakMap();      // 장 → 그 장의 유튜브 조종기들
+  let tube = [];                    // 지금 장의 유튜브 조종기들
+  let tubeTimer = 0;
+  const tubeNow = () => tube.find((p) => p.started) || null;
   const stage = el('div', { class: 'cv-show-stage' });
   const count = el('span', { class: 'cv-show-count' });
   const btn = (label, title, onClick) => el('button', { class: 'cv-show-key', type: 'button', title, 'aria-label': title, onClick: (e) => { e.stopPropagation(); onClick(); } }, label);
   // 영상 장면이 있는 장에서만 보이는 단추: 틀고 있으면 "멈추기", 멈춰 있으면 "틀기".
   const toggleFilm = () => {
+    if (!film && tube.length) { (tubeNow() || tube[0]).toggle(); return; }
     if (!film) return;
     clearTimeout(filmTimer);
     if (film.playing) film.pause(); else film.play();
@@ -748,10 +754,11 @@ function present(O) {
   const filmBtn = btn(ic('pause'), '영상 멈추기 (K)', toggleFilm);
   filmBtn.classList.add('cv-show-film');
   const markFilm = () => {
-    filmBtn.hidden = !film;
-    if (!film) return;
-    const title = film.playing ? '영상 멈추기' : '영상 틀기';
-    filmBtn.replaceChildren(ic(film.playing ? 'pause' : 'play'));
+    const media = film || tubeNow() || tube[0] || null;
+    filmBtn.hidden = !media;
+    if (!media) return;
+    const title = media.playing ? '영상 멈추기' : '영상 틀기';
+    filmBtn.replaceChildren(ic(media.playing ? 'pause' : 'play'));
     filmBtn.title = `${title} (K)`;
     filmBtn.setAttribute('aria-label', title);
   };
@@ -759,6 +766,8 @@ function present(O) {
   const drop = (view) => {
     films.get(view)?.destroy();
     films.delete(view);
+    tubes.get(view)?.forEach((p) => p.destroy());
+    tubes.delete(view);
     view.remove();
   };
   // 지금 장의 영상을 준비하고, delay(ms) 뒤에 처음부터 튼다. 영상 장면이 없는 장이면 단추를 감춘다.
@@ -774,6 +783,13 @@ function present(O) {
       // 파일이 이 기기에 없으면 틀 것이 없다: 단추를 감춘다
       mine.ready.then((ok) => { if (!ok && film === mine) { film = null; markFilm(); } });
     }
+    // 유튜브: 나가는 장의 영상은 멈추고, 들어오는 장의 영상을 미리 불러 둔다. "장이 열리면 바로 틀기"로 정한 것은 저절로 튼다.
+    clearTimeout(tubeTimer);
+    for (const p of tube) if (p.started) p.pause();
+    tube = youTubePlayers(view, { onState: () => markFilm() });
+    tubes.set(view, tube);
+    const autos = tube.filter((p) => p.auto);
+    if (autos.length) tubeTimer = setTimeout(() => { for (const p of autos) if (!p.started) p.play(); }, delay + 400);
     markFilm();
   };
   // 틀던 전환을 바로 끝내고 나가던 장을 뗀다.
@@ -817,6 +833,9 @@ function present(O) {
       settle();
       parts?.finish();
       if (parts?.next()) return;
+      // 아직 틀지 않은 유튜브 영상이 있으면 그것을 튼다(영상도 발표의 한 차례다).
+      const waiting = tube.find((p) => !p.started);
+      if (waiting) { waiting.play(); return; }
     }
     const to = i + step;
     if (to < 0) return;
@@ -829,6 +848,8 @@ function present(O) {
     if ((e.key === ' ' || e.key === 'Enter') && e.target?.closest?.('.cv-show-key')) { e.stopPropagation(); return; }
     // K: 영상 장면을 멈추거나 다시 튼다(글쇠의 자리로 견준다. 한글 입력 상태에서도 듣게).
     if (e.code === 'KeyK' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); toggleFilm(); return; }
+    // 유튜브를 틀었으면 스페이스 바는 멈추기 · 다시 틀기다(다음 장은 → · PageDown · 누르기).
+    if (e.key === ' ' && tubeNow()) { e.preventDefault(); e.stopPropagation(); tubeNow().toggle(); return; }
     const step = e.key === 'Escape' ? 0 : ['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key) ? 1 : ['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key) ? -1 : null;
     if (step === null) return;
     e.preventDefault();
@@ -839,7 +860,9 @@ function present(O) {
   function close() {
     settle();
     clearTimeout(filmTimer);
+    clearTimeout(tubeTimer);
     film = null;
+    tube = [];
     for (const n of [...stage.children]) drop(n);
     document.removeEventListener('keydown', onKey, true);
     document.removeEventListener('fullscreenchange', onFull);

@@ -4,6 +4,10 @@ import { backgroundOf, cleanDesign, fontFamilyOf, settings } from './model.js';
 import { shapeAsset, shapeSvg } from './shapes.js';
 import { artSvg, loadArt, artReady } from './art.js';
 import { sceneView } from './scene.js';
+import { ytThumb, ytEmbed, YT_ORIGIN } from './youtube.js';
+
+// 유튜브 영상의 재생 단추(유튜브의 빨간 단추 모양)
+const YT_PLAY = '<svg viewBox="0 0 68 48" aria-hidden="true" focusable="false"><path d="M66.5 7.7A8.5 8.5 0 0 0 60.5 1.7C55.2.3 34 .3 34 .3s-21.2 0-26.5 1.4A8.5 8.5 0 0 0 1.5 7.7C.1 13 .1 24 .1 24s0 11 1.4 16.3a8.5 8.5 0 0 0 6 6C12.8 47.7 34 47.7 34 47.7s21.2 0 26.5-1.4a8.5 8.5 0 0 0 6-6C67.9 35 67.9 24 67.9 24s0-11-1.4-16.3z" fill="#f03"/><path d="M45 24 27 14v20z" fill="#fff"/></svg>';
 
 /**
  * 요소 하나. 자리와 크기는 카드에 대한 비율이라 카드 크기를 따라간다.
@@ -32,6 +36,11 @@ export function itemView(item) {
     node = el('div', { class: 'fi fi-art', html: artSvg(item.art) });
     if (item.color) node.style.color = item.color;
     if (!artReady()) loadArt().then(() => { node.innerHTML = artSvg(item.art); }).catch(() => node.classList.add('broken'));
+  } else if (item.t === 'yt') {
+    // 유튜브 영상: 썸네일과 재생 단추. 썸네일을 받지 못하면(그림 파일로 만들 때 등) 어두운 판에 재생 단추만 보인다.
+    // 발표 화면에서는 youTubePlayers 가 영상을 미리 불러 두고 스페이스 바(또는 누르기)로 튼다.
+    const thumb = el('img', { class: 'fi-yt-thumb', src: ytThumb(item.yt), alt: '', draggable: 'false', decoding: 'async', referrerPolicy: 'no-referrer', onError: () => thumb.remove() });
+    node = el('div', { class: 'fi fi-yt', dataset: { yt: item.yt, start: String(item.start || 0), auto: item.auto ? '1' : '0' } }, thumb, el('span', { class: 'fi-yt-play', html: YT_PLAY }));
   } else {
     node = el('img', { class: `fi fi-image mk-${item.mask}`, src: item.url, alt: '', draggable: 'false', onError: () => node.classList.add('broken') });
   }
@@ -116,4 +125,71 @@ export function designView(design, { empty = '', sceneEdge = 640, sceneNote = tr
     d.video ? sceneView(d.video, { edge: sceneEdge, note: sceneNote }) : null,
     ...d.items.map(itemView),
     !d.items.length && !d.video && empty ? el('div', { class: 'fe-empty', text: empty }) : null), d.bg);
+}
+
+/**
+ * 발표 화면의 유튜브 영상 조종기. root 안의 영상마다 하나씩 돌려준다.
+ * 장이 열리면 영상을 미리 불러 두고(썸네일과 재생 단추로 덮어 둔다), play() 로 그 자리에서 튼다. 발표의 스페이스 바가 이것을 부른다.
+ * 조종기: { play(), pause(), toggle(), started, playing, auto, destroy() }. onState: 틀기·멈추기가 바뀔 때마다 불린다.
+ * 영상과는 유튜브의 iframe 신호(postMessage)로만 주고받는다(바깥 스크립트를 불러오지 않는다).
+ */
+export function youTubePlayers(root, { onState = () => {} } = {}) {
+  return [...root.querySelectorAll('.fi-yt')].map((node) => ytPlayer(node, onState));
+}
+function ytPlayer(node, onState) {
+  const origin = /^https?:$/.test(location.protocol) ? location.origin : '';
+  const frame = el('iframe', {
+    class: 'fi-yt-frame', title: '유튜브 영상', tabindex: '-1',
+    src: ytEmbed(node.dataset.yt, { start: Number(node.dataset.start) || 0, api: true, origin }),
+    allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin',
+  });
+  node.prepend(frame);
+  node.classList.add('live');
+  let ready = false;
+  let wanted = '';              // 준비되기 전에 받은 신호(준비되면 보낸다)
+  let state = -1;               // 유튜브가 알려 준 상태: 1 트는 중 · 2 멈춤 · 0 끝남 · 3 불러오는 중
+  let tries = 0;
+  let check = 0;
+  const send = (func) => frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), YT_ORIGIN);
+  // 유튜브 쪽이 상태를 알려 주게 한다(답이 올 때까지 몇 번 다시 묻는다).
+  const listen = () => frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), YT_ORIGIN);
+  let poll = 0;
+  frame.addEventListener('load', () => {
+    clearInterval(poll);
+    tries = 0;
+    listen();
+    poll = setInterval(() => { if (ready || ++tries > 40) clearInterval(poll); else listen(); }, 250);
+  });
+  const onMessage = (e) => {
+    if (e.source !== frame.contentWindow || e.origin !== YT_ORIGIN) return;
+    let data = null;
+    try { data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
+    if (!data || typeof data !== 'object') return;
+    if (!ready) { ready = true; clearInterval(poll); if (wanted) send(wanted); wanted = ''; }
+    const next = data.info?.playerState ?? (data.event === 'onStateChange' ? data.info : undefined);
+    if (typeof next === 'number' && next !== state) { state = next; onState(api); }
+  };
+  addEventListener('message', onMessage);
+  const order = (func) => { if (ready) send(func); else wanted = func; };
+  const api = {
+    node,
+    auto: node.dataset.auto === '1',
+    started: false,
+    get playing() { return state === 1 || state === 3 || (!ready && wanted === 'playVideo'); },
+    play() {
+      if (!api.started) { api.started = true; node.classList.add('started'); }
+      order('playVideo');
+      onState(api);
+      // 브라우저가 소리 나는 재생을 막으면(사용자가 아직 페이지를 누르지 않은 경우 등) 소리를 끈 채로라도 튼다. 영상을 누르면 소리를 켤 수 있다.
+      clearTimeout(check);
+      check = setTimeout(() => { if (ready && state !== 1 && state !== 3 && state !== 2) { send('mute'); send('playVideo'); } }, 1500);
+    },
+    pause() { order('pauseVideo'); onState(api); },
+    toggle() { if (api.playing) api.pause(); else api.play(); },
+    destroy() { clearInterval(poll); clearTimeout(check); removeEventListener('message', onMessage); frame.remove(); },
+  };
+  // 덮개(썸네일 · 재생 단추)를 누르면 튼다. 누르기가 발표 화면으로 가서 장이 넘어가지 않게 한다.
+  node.addEventListener('pointerdown', (e) => e.stopPropagation());
+  node.addEventListener('click', (e) => { e.stopPropagation(); if (!api.started) api.play(); });
+  return api;
 }
