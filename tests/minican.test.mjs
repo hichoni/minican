@@ -289,3 +289,36 @@ test('옮겨 쓰기: 규칙 파일들은 브라우저 없이도 읽힌다(index.
   assert.equal(typeof removeBackground, 'function');
   assert.ok(searchStickers('').length > 20);
 });
+
+// ---- 여럿 고르기: 서로에게 맞춰 정렬 · 간격을 고르게 · 함께 옮기기 ----
+test('여럿 정렬: 고른 것들을 감싸는 상자의 변과 가운데에 맞춘다', async () => {
+  const { alignBoxes } = await import('../src/model.js');
+  const boxes = [{ x: 20, y: 30, hw: 5, hh: 10 }, { x: 60, y: 50, hw: 15, hh: 5 }, { x: 40, y: 80, hw: 10, hh: 10 }];
+  assert.deepEqual(alignBoxes(boxes, 'left').map((b) => b.x), [20, 30, 25]);
+  assert.deepEqual(alignBoxes(boxes, 'right').map((b) => b.x), [70, 60, 65]);
+  assert.deepEqual(alignBoxes(boxes, 'center').map((b) => b.x), [45, 45, 45]);
+  assert.deepEqual(alignBoxes(boxes, 'top').map((b) => b.y), [30, 25, 30]);
+  assert.deepEqual(alignBoxes(boxes, 'bottom').map((b) => b.y), [80, 85, 80]);
+  assert.deepEqual(alignBoxes(boxes, 'middle').map((b) => b.y), [55, 55, 55]);
+  assert.deepEqual(alignBoxes(boxes, 'left').map((b) => b.y), [30, 50, 80], '가로로 맞출 때 세로 자리는 그대로');
+  assert.deepEqual(alignBoxes([], 'left'), []);
+});
+
+test('간격을 고르게: 양 끝은 그대로, 사이의 빈칸이 같아진다(셋보다 적으면 그대로)', async () => {
+  const { distributeBoxes } = await import('../src/model.js');
+  const boxes = [{ x: 90, y: 0, hw: 5, hh: 1 }, { x: 10, y: 0, hw: 5, hh: 1 }, { x: 20, y: 0, hw: 2, hh: 1 }];
+  const out = distributeBoxes(boxes, 'x');
+  assert.deepEqual(out.map((b) => b.x), [90, 10, 50], '받은 차례대로 돌려준다');
+  const edges = [[out[1].x - 5, out[1].x + 5], [out[2].x - 2, out[2].x + 2], [out[0].x - 5, out[0].x + 5]];
+  assert.equal(edges[1][0] - edges[0][1], edges[2][0] - edges[1][1]);
+  assert.deepEqual(distributeBoxes(boxes.slice(0, 2), 'x').map((b) => b.x), [90, 10]);
+  assert.deepEqual(distributeBoxes(boxes, 'y').map((b) => b.y), [0, 0, 0]);
+});
+
+test('함께 옮기기: 가운데가 카드 밖으로 나가지 않을 만큼만 옮긴다', async () => {
+  const { clampShift } = await import('../src/model.js');
+  const items = [{ x: 5, y: 40 }, { x: 70, y: 90 }];
+  assert.deepEqual(clampShift(items, -10, 0), [-5, 0]);
+  assert.deepEqual(clampShift(items, 50, 50), [30, 10]);
+  assert.deepEqual(clampShift(items, 3, -4), [3, -4]);
+});

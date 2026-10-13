@@ -132,6 +132,11 @@
   position: absolute; left: -4px; bottom: calc(100% + 6px); padding: 1px 7px; border-radius: 6px; background: var(--fe-other, #e8590c); color: #fff;
   font-size: 12px; font-weight: 800; line-height: 18px; white-space: nowrap;
 }
+/* 여럿을 골랐을 때: 하나하나의 가는 테두리 + 모두를 감싸는 점선 상자. 빈 곳을 끌어 고를 때의 네모 */
+.fe-many { position: absolute; inset: 0; }
+.fe-one { position: absolute; outline: 1.5px solid var(--fe-primary); outline-offset: 1px; }
+.fe-groupbox { position: absolute; outline: 1.5px dashed var(--fe-primary); outline-offset: 5px; box-shadow: 0 0 0 4px rgba(255, 255, 255, .6); }
+.fe-marquee { position: absolute; border: 1.5px solid var(--fe-primary); background: rgba(57, 73, 199, .1); border-radius: 2px; }
 .fe-sel.locked { outline: 1.5px dashed #868e96; }
 .fe-sel.locked .fe-h { display: none; }
 .fe-h {
@@ -199,7 +204,7 @@
 .fe-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 5px 6px; min-height: 50px; }
 .fe-tb {
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-  min-height: 36px; padding: 4px 9px; border: 0; border-radius: 9px; background: transparent; color: var(--fe-text);
+  min-height: 36px; padding: 4px 7px; border: 0; border-radius: 9px; background: transparent; color: var(--fe-text);
   font-size: .9rem; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
 .fe-tb .fe-ic { width: 18px; height: 18px; }
@@ -213,6 +218,22 @@
 .fe-tb:disabled { opacity: .35; cursor: default; }
 /* 삭제는 다른 단추와 떨어져 있고, 올려놓으면 붉게 바뀐다 */
 .fe-tb.del:hover:not(:disabled) { background: var(--fe-danger-soft); color: var(--fe-danger); }
+/* 아이콘 + 이름 단추: 아이콘은 진한 강조색으로 눈에 띄게, 칸을 펼치는 단추에는 작은 ▾ */
+.fe-tb > .fe-ic:first-child { color: var(--fe-primary-dark); }
+.fe-tb.del > .fe-ic:first-child, .fe-tb:disabled > .fe-ic:first-child { color: inherit; }
+.fe-tb .fe-chev { width: 14px; height: 14px; margin-left: -3px; opacity: .55; }
+.fe-tb.on .fe-chev { transform: rotate(180deg); opacity: .8; }
+.fe-tb .fe-ink { margin-left: -2px; }
+/* 여럿을 고른 수 */
+.fe-count {
+  display: inline-flex; align-items: center; gap: 5px; margin: 0 4px 0 2px; padding: 4px 10px; border-radius: 999px;
+  background: var(--fe-soft); color: var(--fe-primary-dark); font-size: .86rem; font-weight: 800; white-space: nowrap;
+}
+.fe-count .fe-ic { width: 16px; height: 16px; }
+/* 좁은 화면에서는 펼치는 단추의 이름을 감추고 아이콘만 둔다(이름은 aria-label · title 로 남는다) */
+@media (max-width: 560px) {
+  .fe-tb.has-pop .fe-lbl, .fe-tb.cover .fe-lbl { display: none; }
+}
 /* 묶음(스타일 · 배치 · 작업): 줄바꿈은 낱낱의 단추대로 되게 상자를 만들지 않는다. 묶음 사이는 .fe-sep 이 나눈다 */
 .fe-group { display: contents; }
 .fe-tb.icon { min-width: 36px; padding: 4px 6px; font-size: 1.02rem; }

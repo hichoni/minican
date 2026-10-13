@@ -8,7 +8,7 @@ import {
   COLORS, SHAPES, SHAPE_GROUPS, MASKS, OPACITY, TEXT_PRESETS, settings, configure, reshapeItems, backgroundOf, fontList, fontFamilyOf, layoutList,
   cleanBg, cleanItems, cleanDesign, emptyDesign, cleanItem, cleanImg, moveLayer, newPresetText, newEmoji, newShape, newPhoto, moveItem, scaleItem, widenItem, heightenItem, rotateItem,
   designMotion, reorder, duplicateItem, pasteItem, itemLabel, sizeOf, resizeTo, sizeRange, alignItem, coverItem, layoutItems, EDGE, canEdge, canRound, cornerOf, THICK, isLine, thickOf, thicken,
-  designVideo, cleanVideo, trimVideo, videoSeconds, videoTime, VIDEO_FITS, MIN_VIDEO, rebaseItems,
+  designVideo, cleanVideo, trimVideo, videoSeconds, videoTime, VIDEO_FITS, MIN_VIDEO, rebaseItems, alignBoxes, distributeBoxes, clampShift,
 } from './model.js';
 import { ENTERS, COMBOS, TRANSITIONS, STILL, planMotion, playEnter, playDesign, playTransition } from './motion.js';
 import { searchStickers } from './stickers.js';
@@ -41,7 +41,7 @@ const ALIGN_ICON = { l: 'alignL', c: 'alignC', r: 'alignR' };
 const ITEM_ICON = { text: 'text', emoji: 'shapes', shape: 'shapes', image: 'image' };
 const NEXT_ALIGN = { l: 'c', c: 'r', r: 'l' };
 const LONG_PRESS = 550;       // 손가락으로 이만큼(ms) 누르고 있으면 오른쪽 누르기 메뉴가 열린다
-// 복사해 둔 요소(이 화면 안에서만 쓰는 클립보드. 다른 카드에 붙여 넣을 수 있다).
+// 복사해 둔 요소들(이 화면 안에서만 쓰는 클립보드. 다른 카드에 붙여 넣을 수 있다). 여럿을 함께 복사하면 여럿이 들어 있다.
 let clipboard = null;
 
 const BLOB_CACHE = 12;         // 이번에 올린 사진의 파일 내용을 이만큼까지 기억해 둔다(배경 제거에서 다시 읽으려고)
@@ -86,6 +86,7 @@ export function createEditor({
   let card = null;            // 지금 꾸미는 디자인(card.items 를 새 목록으로, card.bg 를 새 값으로 바꿔 끼운다)
   const blobs = new Map();    // 사진 주소 → 파일 내용
   let sel = -1;               // 고른 것의 번호(없으면 -1)
+  let many = [];              // 여럿을 함께 골랐을 때 그 번호들(둘 이상일 때만. 그동안 sel 은 -1). 잠근 것은 넣지 않는다
   let preview = null;         // 꾸미기 판에서 미리 보는 움직임 { ctl, tr, timers }
   let motionSel = -1;         // 움직임 칸을 마지막으로 그렸을 때 고른 요소
   let nodes = [];             // 카드 위의 요소들(card.items 와 같은 순서)
@@ -140,7 +141,11 @@ export function createEditor({
   const sceneFlag = el('div', { class: 'fe-scene-flag', hidden: true }, icon('video'), el('span', { text: '이 기기에는 영상이 없어요' }));
   // 다른 사람이 고른 요소의 테두리들(함께 꾸밀 때). 내 테두리보다 아래에 그린다.
   const othersBox = el('div', { class: 'fe-others', 'aria-hidden': 'true' });
-  const overlay = el('div', { class: 'fe-overlay' }, othersBox, guideV, guideH, selBox, sceneFlag);
+  // 여럿을 골랐을 때: 하나하나의 가는 테두리(manyBox)와 모두를 감싸는 상자(groupBox). 빈 곳을 끌어 고를 때의 네모(marquee).
+  const manyBox = el('div', { class: 'fe-many', 'aria-hidden': 'true' });
+  const groupBox = el('div', { class: 'fe-groupbox', hidden: true });
+  const marquee = el('div', { class: 'fe-marquee', hidden: true });
+  const overlay = el('div', { class: 'fe-overlay' }, othersBox, manyBox, guideV, guideH, selBox, groupBox, marquee, sceneFlag);
   const stage = el('div', {
     class: 'fe-stage', tabindex: '0', role: 'group',
     'aria-label': '꾸미기 판. 요소를 누르면 고르고, 끌면 옮겨요. 화살표 키로도 옮길 수 있어요.',
@@ -155,6 +160,10 @@ export function createEditor({
 
   const items = () => card.items;
   const cur = () => (sel >= 0 ? card.items[sel] : null);
+  // 지금 고른 것들의 번호(하나만 골랐으면 그것 하나, 없으면 빈 목록).
+  const chosen = () => (many.length ? many.slice() : sel >= 0 ? [sel] : []);
+  // 여럿 고르기에 넣을 수 있는 것: 잠그지 않았고, 다른 사람이 고르고 있지 않은 것.
+  const free = (i) => !!items()[i] && !items()[i].lock && !(lockedBy && lockedBy(items()[i]));
   const focusStage = () => stage.focus({ preventScroll: true });
 
   // ---------- 실행 취소 · 다시 실행 ----------
@@ -206,6 +215,7 @@ export function createEditor({
     setVideo(s);
     stopPreview();
     sel = -1;
+    many = [];
     pop = null;
     cut = null;
     renderStage();
@@ -234,6 +244,7 @@ export function createEditor({
     drag = null;
     guideV.hidden = true;
     guideH.hidden = true;
+    marquee.hidden = true;
   }
 
   // ---------- 카드(꾸미기 판) ----------
@@ -509,10 +520,11 @@ export function createEditor({
 
   // 고른 것 둘레의 테두리와 손잡이를 그 자리·크기에 맞춘다.
   function syncSel() {
-    nodes.forEach((n, i) => n.classList.toggle('sel', i === sel));
+    nodes.forEach((n, i) => n.classList.toggle('sel', i === sel || many.includes(i)));
     const it = cur();
     const node = nodes[sel];
     drawOthers();
+    drawMany();
     const id = it?.id || '';
     if (onSelect && id !== lastSelId) { lastSelId = id; onSelect(id); }
     selBox.hidden = !it || !node;
@@ -554,6 +566,44 @@ export function createEditor({
     othersBox.replaceChildren(...boxes);
   }
 
+  // 여럿을 골랐을 때: 하나하나에 가는 테두리를, 모두를 감싸는 곳에 점선 상자를 그린다(손잡이는 없다: 끌어서 함께 옮긴다).
+  function drawMany() {
+    if (many.length < 2) { manyBox.replaceChildren(); groupBox.hidden = true; return; }
+    const s = stage.getBoundingClientRect();
+    const boxes = [];
+    let [l, t, r, b] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const i of many) {
+      const it = items()[i];
+      const node = nodes[i];
+      if (!it || !node) continue;
+      const box = el('div', { class: 'fe-one' });
+      box.style.left = `${it.x}%`;
+      box.style.top = `${it.y}%`;
+      box.style.width = `${node.offsetWidth}px`;
+      box.style.height = `${node.offsetHeight}px`;
+      box.style.transform = `translate(-50%, -50%) rotate(${it.rot}deg)`;
+      boxes.push(box);
+      const n = node.getBoundingClientRect();
+      [l, t, r, b] = [Math.min(l, n.left), Math.min(t, n.top), Math.max(r, n.right), Math.max(b, n.bottom)];
+    }
+    manyBox.replaceChildren(...boxes);
+    groupBox.hidden = !boxes.length;
+    if (!boxes.length) return;
+    groupBox.style.left = `${l - s.left}px`;
+    groupBox.style.top = `${t - s.top}px`;
+    groupBox.style.width = `${r - l}px`;
+    groupBox.style.height = `${b - t}px`;
+  }
+  // 그 요소가 화면에 보이는 자리와 크기(돌린 것은 돌린 채로 감싸는 상자). 카드 너비·높이를 100 으로 본 값.
+  function boxOf(i) {
+    const s = stage.getBoundingClientRect();
+    const r = nodes[i].getBoundingClientRect();
+    return {
+      x: (r.left + r.width / 2 - s.left) / (s.width || 1) * 100, y: (r.top + r.height / 2 - s.top) / (s.height || 1) * 100,
+      hw: r.width / 2 / (s.width || 1) * 100, hh: r.height / 2 / (s.height || 1) * 100,
+    };
+  }
+
   // 도구 막대는 늘, 옆 메뉴는 고른 것·목록에 따라 달라지는 칸(레이어·업로드·배경)일 때만 다시 그린다.
   // (텍스트·요소·템플릿 칸까지 다시 그리면 찾던 낱말과 넘겨 보던 자리가 사라진다)
   function renderUi() {
@@ -564,7 +614,7 @@ export function createEditor({
   }
 
   function select(i) {
-    if (i === sel) return;
+    if (i === sel && !many.length) return;
     // 다른 사람이 고르고 있는 요소는 고르지 않는다(함께 꾸밀 때). 알리고, 빈 곳을 누른 것처럼 고르기를 푼다.
     const who = i >= 0 && lockedBy ? lockedBy(items()[i]) : '';
     if (who) {
@@ -576,10 +626,36 @@ export function createEditor({
     stopDrag();
     if (i >= 0) stopPreview();           // 미리 보느라 숨겨 둔 요소를 고르는 일이 없게
     sel = i;
+    many = [];
     pop = null;
     cut = null;
     syncSel();
     renderUi();
+  }
+
+  // 여럿을 고른다(Shift 누르기 · 빈 곳을 끌어 고르기 · Ctrl+A). 둘보다 적으면 하나 고르기와 같다. 잠근 것은 빠진다.
+  function selectMany(list) {
+    const pick = [...new Set(list)].filter(free).sort((a, b) => a - b);
+    if (pick.length < 2) { select(pick.length ? pick[0] : -1); return; }
+    if (pick.length === many.length && pick.every((i, k) => many[k] === i)) return;
+    endEdit();
+    stopDrag();
+    stopPreview();
+    setMany(pick);
+    renderUi();
+  }
+  // 고른 것만 바꾼다(끌어서 고르는 동안에는 끌기를 멈추지 않고, 도구 막대도 다 고른 뒤에 한 번만 그린다).
+  function setMany(pick) {
+    if (pick.length >= 2) { sel = -1; many = pick; } else { many = []; sel = pick.length ? pick[0] : -1; }
+    pop = null;
+    cut = null;
+    syncSel();
+  }
+  // 고른 것 가운데 하나를 넣거나 뺀다(Shift 를 누른 채 누르기).
+  function toggleChosen(i) {
+    if (!free(i)) { notify(items()[i]?.lock ? '잠근 요소는 함께 고를 수 없어요. 먼저 잠금을 풀어요.' : '친구가 고르고 있는 요소예요.', 3000); return; }
+    const list = chosen().filter(free);
+    selectMany(list.includes(i) ? list.filter((k) => k !== i) : [...list, i]);
   }
 
   // 고른 것을 새 값으로 바꾼다(자리·크기·투명도만 바뀔 때는 요소를 그대로 두고 옮긴다).
@@ -594,6 +670,19 @@ export function createEditor({
       nodes[sel] = node;
     } else placeItem(nodes[sel], next);
     syncSel();
+  }
+
+  // 여럿을 한꺼번에 새 값으로 바꾼다(next: 번호 → 새 요소). 자리만 바뀌므로 요소를 그대로 두고 옮긴다.
+  function putMany(next) {
+    const list = items().slice();
+    for (const [i, it] of next) { list[i] = it; if (nodes[i]) placeItem(nodes[i], it); }
+    card.items = list;
+    syncSel();
+  }
+  // 여럿을 함께 옮긴다(가운데가 카드 밖으로 나가지 않게 거리를 줄인다).
+  function shiftMany(from, idx, dx, dy) {
+    const [mx, my] = clampShift(from, dx, dy);
+    putMany(new Map(idx.map((i, k) => [i, moveItem(from[k], from[k].x + mx, from[k].y + my, { snap: false }).item])));
   }
 
   // 한 번에 끝나는 바꾸기(색·글꼴·모양 등): 기록 → 바꾸기 → 알리기.
@@ -617,8 +706,9 @@ export function createEditor({
   }
 
   // 목록이 통째로 바뀌는 일(넣기·삭제·순서·복제·템플릿)을 한 뒤에 부른다.
-  function listChanged(nextSel) {
-    sel = nextSel;
+  function listChanged(nextSel, nextMany = []) {
+    sel = nextMany.length >= 2 ? -1 : nextSel;
+    many = nextMany.length >= 2 ? nextMany : [];
     pop = null;
     cut = null;
     renderStage();
@@ -643,11 +733,12 @@ export function createEditor({
   }
 
   function remove() {
-    if (sel < 0 || cur().lock) return;
+    const gone = chosen().filter((i) => !items()[i].lock);
+    if (!gone.length) return;
     endEdit();
     stopDrag();
     remember();
-    card.items = items().filter((_, i) => i !== sel);
+    card.items = items().filter((_, i) => !gone.includes(i));
     listChanged(-1);
     focusStage();
   }
@@ -668,6 +759,7 @@ export function createEditor({
   }
 
   function copy() {
+    if (many.length) { copyMany(); return; }
     const dup = duplicateItem(items(), sel);
     if (!dup) { notify(cur()?.t === 'image' ? `사진은 카드 한 장에 ${settings().maxPhotos}장까지예요.` : `카드 한 장에는 요소를 ${settings().maxItems}개까지 놓을 수 있어요.`); return; }
     endEdit();
@@ -678,23 +770,110 @@ export function createEditor({
     focusStage();
   }
 
+  // 여럿을 한꺼번에 넣는다(복제 · 붙여넣기). 넣은 것들을 함께 고른다. 다 넣지 못했으면 알린다.
+  function addMany(made, short) {
+    if (!made.length) { notify(short); return; }
+    endEdit();
+    stopDrag();
+    remember();
+    const start = items().length;
+    card.items = [...items(), ...made];
+    const added = made.map((_, k) => start + k);
+    listChanged(added.length === 1 ? added[0] : -1, added.length > 1 ? added : []);
+    if (short && made.length) notify(short);
+    focusStage();
+  }
+  const fullNote = (image) => (image ? `사진은 카드 한 장에 ${settings().maxPhotos}장까지예요.` : `카드 한 장에는 요소를 ${settings().maxItems}개까지 놓을 수 있어요.`);
+  // 고른 것들을 하나씩 복제한다(겹치는 순서는 그대로, 새것은 맨 앞에).
+  function copyMany() {
+    let list = items();
+    const made = [];
+    let failed = null;
+    for (const i of many) {
+      const dup = duplicateItem(list, list.indexOf(items()[i]));
+      if (!dup) { failed = items()[i]; continue; }
+      made.push({ ...dup, lock: false });
+      list = [...list, dup];
+    }
+    addMany(made, failed ? fullNote(failed.t === 'image') : '');
+  }
+
   // ---------- 복사 · 잘라내기 · 붙여넣기 ----------
   function clipCopy() {
-    if (!cur()) return false;
-    clipboard = JSON.parse(JSON.stringify(cur()));
+    const list = chosen();
+    if (!list.length) return false;
+    clipboard = JSON.parse(JSON.stringify(list.map((i) => items()[i])));
     return true;
   }
   function clipCut() {
-    if (!cur() || cur().lock) return;
+    if (!chosen().some((i) => !items()[i].lock)) return;
     clipCopy();
     remove();
   }
-  // at({ x, y })을 주면 그 자리에(오른쪽 누르기 메뉴로 빈 곳에 붙일 때), 아니면 원래 자리에서 조금 옆에.
+  // at({ x, y })을 주면 그 자리에(오른쪽 누르기 메뉴로 빈 곳에 붙일 때. 여럿이면 그 가운데가 거기에), 아니면 원래 자리에서 조금 옆에.
   function clipPaste(at = null) {
-    if (!clipboard) { notify('먼저 요소를 복사해요 (오른쪽 누르기 → 복사).'); return; }
-    const it = pasteItem(items(), clipboard, at);
-    if (!it) { notify(clipboard.t === 'image' ? `사진은 카드 한 장에 ${settings().maxPhotos}장까지예요.` : `카드 한 장에는 요소를 ${settings().maxItems}개까지 놓을 수 있어요.`); return; }
-    add(it, { edit: false });
+    if (!clipboard?.length) { notify('먼저 요소를 복사해요 (오른쪽 누르기 → 복사).'); return; }
+    const cx = clipboard.reduce((n, k) => n + k.x, 0) / clipboard.length;
+    const cy = clipboard.reduce((n, k) => n + k.y, 0) / clipboard.length;
+    let list = items();
+    const made = [];
+    let failed = null;
+    for (const k of clipboard) {
+      const it = pasteItem(list, k, at ? { x: at.x + k.x - cx, y: at.y + k.y - cy } : null);
+      if (!it) { failed = k; continue; }
+      made.push(it);
+      list = [...list, it];
+    }
+    if (made.length === 1 && !failed) { add(made[0], { edit: false }); return; }
+    addMany(made, failed ? fullNote(failed.t === 'image') : '');
+  }
+  // 고른 것들을 함께 맨 앞(top) · 맨 뒤(bottom)로 보낸다. 고른 것끼리의 순서는 그대로다.
+  function orderMany(to) {
+    const picked = many.map((i) => items()[i]);
+    const rest = items().filter((_, i) => !many.includes(i));
+    const list = to === 'top' ? [...rest, ...picked] : [...picked, ...rest];
+    if (list.every((it, i) => it === items()[i])) return;
+    const keep = pop === 'malign';          // 도구 막대에서 눌렀으면 정렬 칸은 열어 둔다
+    endEdit();
+    stopDrag();
+    remember();
+    card.items = list;
+    listChanged(-1, picked.map((it) => list.indexOf(it)));
+    if (keep) { pop = 'malign'; renderBar(); }
+    focusStage();
+  }
+  // 고른 것들을 서로에게 맞춰 정렬하거나(alignBoxes) 사이를 고르게 펼친다(distributeBoxes).
+  function arrangeMany(kind, where) {
+    if (many.length < 2) return;
+    const boxes = many.map(boxOf);
+    const to = kind === 'align' ? alignBoxes(boxes, where) : distributeBoxes(boxes, where);
+    const next = new Map();
+    many.forEach((i, k) => {
+      const it = items()[i];
+      const moved = moveItem(it, it.x + to[k].x - boxes[k].x, it.y + to[k].y - boxes[k].y, { snap: false }).item;
+      if (moved.x !== it.x || moved.y !== it.y) next.set(i, moved);
+    });
+    if (!next.size) return;
+    endEdit();
+    stopDrag();
+    remember();
+    putMany(next);
+    onChange();
+    focusStage();
+  }
+  // 고른 것들을 모두 잠근다(잠근 것은 여럿 고르기에 들지 않으므로 고르기를 푼다).
+  function lockMany() {
+    const count = many.length;
+    if (!count) return;
+    endEdit();
+    stopDrag();
+    remember();
+    const list = items().slice();
+    for (const i of many) list[i] = { ...list[i], lock: true };
+    card.items = list;
+    listChanged(-1);
+    notify(`${count}개를 잠갔어요. 풀려면 하나씩 누르고 "잠금 해제"를 눌러요.`, 3500);
+    focusStage();
   }
 
   // ---------- 오른쪽 누르기 메뉴(터치는 길게 누르기) ----------
@@ -711,7 +890,10 @@ export function createEditor({
     endEdit();
     stopDrag();
     // 누른 곳에서 맨 위에 보이는 요소를 고른다(빈 곳이면 고르기를 푼다). keep: 글자판으로 열 때는 고른 것을 그대로 둔다.
-    if (!keep) select(itemAt(x, y, touch));
+    if (!keep) {
+      const at = itemAt(x, y, touch);
+      if (!(many.length && many.includes(at))) select(at);       // 여럿 고른 것 위에서 열면 그 묶음에 할 일이 나온다
+    }
     const it = cur();
     const rect = stage.getBoundingClientRect();
     const at = { x: (x - rect.left) / rect.width * 100, y: (y - rect.top) / rect.height * 100 };
@@ -730,7 +912,28 @@ export function createEditor({
     const last = items().length - 1;
     // 묶음: 글 고치기 → 복사·붙여넣기 → 겹치는 순서 → 뒤집기 → 잠금 → 삭제. 묶음 사이에 구분선을 둔다(빈 묶음은 건너뛴다).
     let groups;
-    if (!it) {
+    if (many.length) {
+      groups = [
+        [
+          row('copy', '복사', 'Ctrl+C', () => { clipCopy(); focusStage(); }),
+          row('cut', '잘라내기', 'Ctrl+X', clipCut),
+          row('paste', '붙여넣기', 'Ctrl+V', () => clipPaste(), { disabled: !clipboard }),
+          row('duplicate', '복제', 'Ctrl+D', copyMany),
+        ],
+        [
+          row('toFront', '맨 앞으로', '', () => orderMany('top')),
+          row('toBack', '맨 뒤로', '', () => orderMany('bottom')),
+        ],
+        [
+          row('pageL', '왼쪽 맞춤', '', () => arrangeMany('align', 'left')),
+          row('pageC', '가운데 맞춤', '', () => arrangeMany('align', 'center')),
+          row('pageT', '위쪽 맞춤', '', () => arrangeMany('align', 'top')),
+          row('pageM', '중간 맞춤', '', () => arrangeMany('align', 'middle')),
+        ],
+        [row('lock', '모두 잠금', '', lockMany)],
+        [row('trash', `${many.length}개 삭제`, 'Delete', remove, { danger: true })],
+      ];
+    } else if (!it) {
       groups = [
         [row('paste', '붙여넣기', 'Ctrl+V', () => clipPaste(at), { disabled: !clipboard })],
         [row('undo', '실행 취소', 'Ctrl+Z', undo, { disabled: !past.length }), row('redo', '다시 실행', 'Ctrl+Shift+Z', redo, { disabled: !future.length })],
@@ -762,7 +965,7 @@ export function createEditor({
       ];
     }
     const rows = groups.filter((g) => g.length).flatMap((g, i) => (i ? [sep(), ...g] : g));
-    const node = el('div', { class: `fe-menu${touch ? ' touch' : ''}`, role: 'menu', 'aria-label': it ? `${itemLabel(it)} 메뉴` : '카드 메뉴' }, ...rows);
+    const node = el('div', { class: `fe-menu${touch ? ' touch' : ''}`, role: 'menu', 'aria-label': many.length ? `고른 ${many.length}개 메뉴` : it ? `${itemLabel(it)} 메뉴` : '카드 메뉴' }, ...rows);
     document.body.append(node);
     // 화면 밖으로 나가지 않게 자리를 맞춘다.
     const w = node.offsetWidth;
@@ -1030,6 +1233,11 @@ export function createEditor({
     const h = e.target.closest?.('.fe-h');
     const top = e.target.closest?.('.fi') ? itemAt(e.clientX, e.clientY, !!e.pointerType && e.pointerType !== 'mouse') : -1;
     if (h && sel >= 0 && !cur().lock) start(h.dataset.h, e);
+    // Shift 를 누른 채 누르면 그 요소를 고른 것에 넣거나 뺀다. 빈 곳에서 끌면 고른 것에 더한다.
+    else if (e.shiftKey && top >= 0 && !items()[top].lock) { e.preventDefault(); focusStage(); toggleChosen(top); }
+    // 여럿 고른 것 가운데 하나를 잡으면 모두 함께 옮긴다(끌지 않고 떼면 그것 하나만 고른다).
+    else if (many.length && many.includes(top)) startGroup(e, top);
+    else if (top >= 0 && e.shiftKey) startMarquee(e, true);
     else if (top >= 0 && top !== sel && sel >= 0 && !cur().lock && document.elementsFromPoint(e.clientX, e.clientY).includes(nodes[sel])) {
       // 고른 것 위에 다른 것이 겹쳐 있을 때: 끌면 고른 것이 움직이고, 그냥 누르기만 하면 위에 있는 것을 고른다.
       start('move', e);
@@ -1040,8 +1248,35 @@ export function createEditor({
       if (sel !== top) return;                      // 고르지 못했다(다른 사람이 고르고 있다): 끌지 않는다
       start('move', e);
       if (drag) drag.again = again;
-    } else select(-1);
+    } else startMarquee(e, e.shiftKey);
   });
+  // 빈 곳에서 끌어 네모 안에 닿는 것들을 고른다(잠근 것은 빼고). add: 이미 고른 것에 더한다(Shift).
+  function startMarquee(e, add) {
+    e.preventDefault();
+    focusStage();
+    const base = add ? chosen().filter(free) : [];
+    if (!add) select(-1);
+    try { stage.setPointerCapture(e.pointerId); } catch { /* 잡지 못해도 계속한다 */ }
+    drag = { mode: 'marquee', id: e.pointerId, px: e.clientX, py: e.clientY, base, moved: false };
+  }
+  function dragMarquee(e) {
+    const s = stage.getBoundingClientRect();
+    const [l, r] = [Math.min(drag.px, e.clientX), Math.max(drag.px, e.clientX)];
+    const [t, b] = [Math.min(drag.py, e.clientY), Math.max(drag.py, e.clientY)];
+    Object.assign(marquee.style, { left: `${l - s.left}px`, top: `${t - s.top}px`, width: `${r - l}px`, height: `${b - t}px` });
+    marquee.hidden = false;
+    const hits = nodes.map((n, i) => [n.getBoundingClientRect(), i]).filter(([n, i]) => free(i) && n.right >= l && n.left <= r && n.bottom >= t && n.top <= b).map(([, i]) => i);
+    const pick = [...new Set([...drag.base, ...hits])].sort((a, c) => a - c);
+    if (pick.join() !== chosen().join()) setMany(pick);
+  }
+  // 여럿을 함께 옮기기 시작한다. tap: 끌지 않고 떼면 이것 하나만 고른다(캔바처럼).
+  function startGroup(e, tap) {
+    e.preventDefault();
+    endEdit();
+    focusStage();
+    try { stage.setPointerCapture(e.pointerId); } catch { /* 잡지 못해도 계속한다 */ }
+    drag = { mode: 'group', id: e.pointerId, rect: stage.getBoundingClientRect(), px: e.clientX, py: e.clientY, idx: many.slice(), from: many.map((i) => items()[i]), moved: false, tap };
+  }
   function start(mode, e) {
     e.preventDefault();
     focusStage();
@@ -1069,8 +1304,32 @@ export function createEditor({
   stage.addEventListener('pointermove', (e) => {
     if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8) stopPress();
     if (!drag || e.pointerId !== drag.id) return;
+    if (drag.mode === 'marquee') {
+      if (!drag.moved && Math.hypot(e.clientX - drag.px, e.clientY - drag.py) < 4) return;
+      drag.moved = true;
+      dragMarquee(e);
+      return;
+    }
+    if (drag.mode === 'group') {
+      if (!drag.moved) {
+        if (Math.hypot(e.clientX - drag.px, e.clientY - drag.py) < 4) return;
+        drag.moved = true;
+        remember();
+      }
+      shiftMany(drag.from, drag.idx, (e.clientX - drag.px) / drag.rect.width * 100, (e.clientY - drag.py) / drag.rect.height * 100);
+      return;
+    }
     const { mode, rect, from, cx, cy } = drag;
-    if (from.lock) return;                         // 잠근 것은 고르기만 되고 움직이지 않는다
+    if (from.lock) {
+      // 잠근 것(배경으로 깐 사진 등)은 움직이지 않는다. 그 위에서 끌면 빈 곳에서처럼 네모로 고른다.
+      if (mode === 'move' && Math.hypot(e.clientX - drag.px, e.clientY - drag.py) >= 4) {
+        const { id, px, py } = drag;
+        select(-1);                                 // 끌기를 멈추므로 새 끌기는 그 뒤에 만든다
+        drag = { mode: 'marquee', id, px, py, base: [], moved: true };
+        dragMarquee(e);
+      }
+      return;
+    }
     if (!drag.moved) {
       if (Math.hypot(e.clientX - drag.px, e.clientY - drag.py) < 4) return;
       drag.moved = true;
@@ -1103,6 +1362,8 @@ export function createEditor({
     if (press && e.pointerId === press.id) stopPress();
     if (!drag || e.pointerId !== drag.id) return;
     const { moved, tap, again, mode } = drag;
+    // select(-1) 이 끌기를 멈추므로, 잡아 둔 drag 를 지운 뒤에 고른다.
+    if (mode === 'marquee') { stopDrag(); renderUi(); return; }
     stopDrag();
     if (moved) { renderUi(); onChange(); return; }
     if (tap != null) { select(tap); return; }
@@ -1153,8 +1414,25 @@ export function createEditor({
     // 메뉴 글쇠(또는 Shift+F10): 고른 요소의 가운데(없으면 카드 가운데)에서 메뉴를 연다.
     if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
       e.preventDefault();
-      const b = (nodes[sel] || stage).getBoundingClientRect();
+      const b = (nodes[sel] || (many.length ? groupBox : stage)).getBoundingClientRect();
       openMenu(b.left + b.width / 2, b.top + b.height / 2, { keep: true });
+      return;
+    }
+    // Ctrl+A: 잠그지 않은 것을 모두 고른다.
+    if (mod && key === 'KeyA') { e.preventDefault(); selectMany(items().map((_, i) => i)); return; }
+    if (many.length) {
+      const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      if (mod && key === 'KeyC') { e.preventDefault(); clipCopy(); }
+      else if (mod && key === 'KeyX') { e.preventDefault(); clipCut(); }
+      else if (mod && key === 'KeyD') { e.preventDefault(); copyMany(); }
+      else if (arrows[e.key]) {
+        e.preventDefault();
+        const step = e.shiftKey ? 5 : 1;
+        remember();
+        shiftMany(many.map((i) => items()[i]), many.slice(), arrows[e.key][0] * step, arrows[e.key][1] * step);
+        onChange();
+      } else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remove(); }
+      else if (e.key === 'Escape') select(-1);
       return;
     }
     const it = cur();
@@ -1258,6 +1536,7 @@ export function createEditor({
       remember();
       card.items = items().filter((it) => !(it.t === 'image' && it.url === url));
       sel = -1;
+      many = [];
       pop = null;
       cut = null;
       renderStage();
@@ -1424,12 +1703,16 @@ export function createEditor({
 
   // ---------- 작은 부품들 ----------
   // 도구 막대의 단추. 아이콘만 있는 단추는 name 으로 접근 이름을 준다(title 은 마우스를 올렸을 때의 풍선 도움말).
+  // 칸을 펼치는 단추(has-pop)에는 작은 ▾ 를 붙여, 누르면 바로 하는 단추와 구별되게 한다(아이콘만 있는 단추는 빼고).
   const tb = (label, onClick, { on = null, title = '', name = '', disabled = false, cls = '' } = {}) => el('button', {
     class: `fe-tb${on ? ' on' : ''}${cls ? ` ${cls}` : ''}`, type: 'button', title: title || name || null, 'aria-label': name || null, disabled,
     'aria-pressed': on == null ? null : String(!!on), onClick,
-  }, label);
+  }, label, /\bhas-pop\b/.test(cls) && !/\bicon\b/.test(cls) ? icon('chev', 'fe-chev') : null);
   const toggle = (name) => { pop = pop === name ? null : name; if (pop !== 'cut') cut = null; renderBar(); keepKeys(); };
   const popBtn = (label, name, opts = {}) => tb(label, () => toggle(name), { ...opts, on: pop === name, cls: 'has-pop' });
+  // 아이콘 + 이름 단추의 속. 이름(.fe-lbl)은 좁은 도구 막대에서 감춰지므로, 단추에는 늘 name(aria-label)을 함께 준다.
+  const lab = (pic, text) => [icon(pic), el('span', { class: 'fe-lbl', text })];
+  const pick = (pic, text, name, opts = {}) => popBtn(lab(pic, text), name, { name: text, ...opts });
   const pbtn = (label, onClick, extra = {}) => el('button', { class: 'fe-btn', type: 'button', onClick, ...extra }, label);
 
   function swatches(value, onPick, { none = false, noneName = '없음', label }) {
@@ -1546,9 +1829,23 @@ export function createEditor({
       tb(icon('redo'), redo, { title: '다시 실행 (Ctrl+Shift+Z)', name: '다시 실행', disabled: !future.length, cls: 'icon redo' }),
       el('span', { class: 'fe-sep' }),
     ];
+    if (many.length) {
+      const group = (name, ...kids) => el('span', { class: 'fe-group', role: 'group', 'aria-label': name }, ...kids);
+      bar.replaceChildren(...always,
+        el('span', { class: 'fe-count', role: 'status' }, icon('selectAll'), `${many.length}개 고름`),
+        group('배치', pick('align', '정렬', 'malign', { title: '서로에게 맞춰 정렬하고 간격을 고르게' })),
+        el('span', { class: 'fe-sep' }),
+        group('작업',
+          tb(icon('duplicate'), copyMany, { title: '모두 복제 (Ctrl+D)', name: '모두 복제', cls: 'icon dup' }),
+          tb(icon('lock'), lockMany, { title: '모두 잠금', name: '모두 잠금', cls: 'icon lock' })),
+        el('span', { class: 'fe-sep' }),
+        tb(icon('trash'), remove, { title: `${many.length}개 삭제 (Delete)`, name: `${many.length}개 삭제`, cls: 'icon del' }));
+      renderManyPop();
+      return;
+    }
     if (!it) {
       bar.replaceChildren(...always, el('span', { class: 'fe-hint', text: items().length
-        ? '요소를 누르면 여기에 꾸미는 도구가 나와요.' : '옆 메뉴에서 템플릿이나 텍스트를 넣어 시작해요.' }));
+        ? '요소를 누르면 꾸미는 도구가 나와요. Shift 를 누른 채 누르거나 빈 곳을 끌면 여럿을 함께 골라요.' : '옆 메뉴에서 템플릿이나 텍스트를 넣어 시작해요.' }));
       popBox.hidden = true;
       popBox.replaceChildren();
       return;
@@ -1593,42 +1890,42 @@ export function createEditor({
         tb(icon(ALIGN_ICON[it.align]), () => change({ align: NEXT_ALIGN[cur().align] }), {
           title: `정렬: ${ALIGN_NAME[it.align]} (누를 때마다 왼쪽 → 가운데 → 오른쪽)`, name: `정렬: ${ALIGN_NAME[it.align]}`, cls: 'icon align',
         }),
-        popBtn('바탕색', 'bgc', { title: '글 뒤에 색 깔기' }),
-        tb([icon('pencil'), '고치기'], () => startEdit(true), { title: '글 고치기: 카드에서 글을 두 번 눌러도 돼요', on: editing === sel, cls: 'edit' }));
+        pick('highlight', '바탕색', 'bgc', { title: '글 뒤에 색 깔기' }),
+        tb(icon('pencil'), () => startEdit(true), { title: '글 고치기 (Enter): 카드에서 글을 두 번 눌러도 돼요', name: '글 고치기', on: editing === sel, cls: 'icon edit' }));
     } else if (it.t === 'shape') {
       // 면으로 된 도형은 채우기·테두리를 따로 정한다(네모·둥근 네모는 모서리도). 선·체크처럼 가는 꾸밈은 색만 바꾼다.
       const edge = canEdge(it);
       const ink = el('span', { class: `fe-ink dot${it.hollow ? ' none' : ''}` });
       if (!it.hollow) ink.style.background = it.color;
-      own.push(tb(el('span', { class: 'fe-a' }, edge ? '채우기' : '색', ink), () => toggle('color'), {
-        title: edge ? '도형을 채우는 색' : '도형 색', on: pop === 'color', cls: 'has-pop color',
+      own.push(tb([icon(edge ? 'fill' : 'palette'), el('span', { class: 'fe-lbl', text: edge ? '채우기' : '색' }), ink], () => toggle('color'), {
+        title: edge ? '도형을 채우는 색' : '도형 색', name: edge ? '채우기 색' : '도형 색', on: pop === 'color', cls: 'has-pop color',
       }));
       if (edge) {
         const ring = el('span', { class: `fe-ink dot ring${it.line ? '' : ' none'}` });
         if (it.line) ring.style.borderColor = it.lc;
-        own.push(tb(el('span', { class: 'fe-a' }, '테두리', ring), () => toggle('edge'), { title: '테두리 색과 굵기', on: pop === 'edge', cls: 'has-pop edge' }));
+        own.push(tb([icon('border'), el('span', { class: 'fe-lbl', text: '테두리' }), ring], () => toggle('edge'), { title: '테두리 색과 굵기', name: '테두리', on: pop === 'edge', cls: 'has-pop edge' }));
       }
-      if (canRound(it)) own.push(popBtn('모서리', 'corner', { title: '모서리를 둥글게' }));
-      if (isLine(it)) own.push(popBtn('굵기', 'thick', { title: '선의 굵기' }));
+      if (canRound(it)) own.push(pick('corner', '모서리', 'corner', { title: '모서리를 둥글게' }));
+      if (isLine(it)) own.push(pick('thick', '굵기', 'thick', { title: '선의 굵기' }));
     } else if (it.t === 'emoji') {
-      own.push(popBtn('그래픽 바꾸기', 'swap'));
+      own.push(pick('swap', '바꾸기', 'swap', { title: '다른 그래픽으로 바꾸기' }));
     } else {
       own.push(
-        tb([icon('cut'), '배경 제거'], () => (pop === 'cut' ? toggle('cut') : openCut()), { on: pop === 'cut', title: '사진의 배경을 투명하게 지워요', cls: 'has-pop cut' }),
-        popBtn('테두리 모양', 'mask'),
-        tb('배경으로 깔기', toBackground, { title: '카드에 꽉 차게 키워 맨 뒤에 깔아요', cls: 'cover' }));
+        tb(lab('eraser', '배경 제거'), () => (pop === 'cut' ? toggle('cut') : openCut()), { on: pop === 'cut', title: '사진의 배경을 투명하게 지워요', name: '배경 제거', cls: 'has-pop cut' }),
+        pick('mask', '모양', 'mask', { title: '사진의 테두리 모양(동그라미 · 둥근 네모 …)' }),
+        tb(lab('cover', '배경으로'), toBackground, { title: '카드에 꽉 차게 키워 맨 뒤에 깔아요', name: '배경으로 깔기', cls: 'cover' }));
     }
 
     // 세 묶음으로 나눈다: 스타일(종류마다 다른 것 + 투명도) | 배치(크기 · 뒤집기 · 위치) | 작업(복제 · 잠금), 그리고 삭제는 따로.
     // 단추의 규칙: 글자 단추는 칸을 펼치고(색은 지금 색을 함께 보여 준다), 아이콘 단추는 누르면 바로 한다.
     const group = (name, ...kids) => el('span', { class: 'fe-group', role: 'group', 'aria-label': name }, ...kids.filter(Boolean));
     bar.replaceChildren(...always,
-      group('스타일', ...own, popBtn('투명도', 'op', { title: '투명도: 낮출수록 비쳐 보여요' })),
+      group('스타일', ...own, pick('opacity', '투명도', 'op', { title: '투명도: 낮출수록 비쳐 보여요' })),
       el('span', { class: 'fe-sep' }),
       group('배치',
-        it.t === 'text' ? null : popBtn('크기', 'size', { title: '요소의 크기 (가로세로 비율은 그대로)' }),      // 텍스트는 − 숫자 + 로 바꾼다
-        it.t === 'text' ? null : popBtn('뒤집기', 'flip', { title: '좌우·상하 뒤집기, 바로 세우기' }),
-        popBtn('위치', 'pos', { title: '겹치는 순서와 페이지 정렬' })),
+        it.t === 'text' ? null : pick('resize', '크기', 'size', { title: '요소의 크기 (가로세로 비율은 그대로)' }),      // 텍스트는 − 숫자 + 로 바꾼다
+        it.t === 'text' ? null : pick('flipH', '뒤집기', 'flip', { title: '좌우·상하 뒤집기, 바로 세우기' }),
+        pick('layers', '위치', 'pos', { title: '겹치는 순서와 페이지 정렬' })),
       el('span', { class: 'fe-sep' }),
       group('작업',
         tb(icon('duplicate'), copy, { title: '복제: 똑같은 것을 하나 더 (Ctrl+D)', name: '복제', cls: 'icon dup' }),
@@ -1636,6 +1933,29 @@ export function createEditor({
       el('span', { class: 'fe-sep' }),
       tb(icon('trash'), remove, { title: '삭제 (Delete)', name: '삭제', cls: 'icon del' }));
     renderPop(it);
+  }
+
+  // 여럿을 골랐을 때 펼치는 칸: 서로에게 맞춰 정렬 · 간격을 고르게 · 겹치는 순서.
+  function renderManyPop() {
+    const body = pop === 'malign' ? [
+      el('div', { class: 'fe-poshead', text: '서로에게 맞춰 정렬' }),
+      el('div', { class: 'fe-grid three' },
+        ...[['left', '왼쪽', 'pageL'], ['center', '가운데', 'pageC'], ['right', '오른쪽', 'pageR'], ['top', '위', 'pageT'], ['middle', '중간', 'pageM'], ['bottom', '아래', 'pageB']]
+          .map(([where, name, pic]) => pbtn([icon(pic), name], () => arrangeMany('align', where), { class: 'fe-btn stack', dataset: { align: where } }))),
+      el('div', { class: 'fe-poshead', text: '간격을 고르게' }),
+      el('div', { class: 'fe-grid two' },
+        pbtn([icon('distH'), '가로 간격'], () => arrangeMany('spread', 'x'), { disabled: many.length < 3, dataset: { spread: 'x' } }),
+        pbtn([icon('distV'), '세로 간격'], () => arrangeMany('spread', 'y'), { disabled: many.length < 3, dataset: { spread: 'y' } })),
+      el('p', { class: 'fe-note', text: many.length < 3 ? '간격을 고르게 하려면 셋 이상 골라요.' : '양 끝의 것은 그대로 두고 사이의 빈칸을 똑같이 맞춰요.' }),
+      el('div', { class: 'fe-poshead', text: '겹치는 순서' }),
+      el('div', { class: 'fe-grid two' },
+        pbtn([icon('toFront'), '맨 앞으로'], () => orderMany('top')),
+        pbtn([icon('toBack'), '맨 뒤로'], () => orderMany('bottom'))),
+    ] : null;
+    popBox.hidden = !body;
+    popBox.replaceChildren(...(body ? [
+      el('button', { class: 'fe-pop-close', type: 'button', 'aria-label': '닫기', title: '닫기 (Esc)', onClick: () => toggle(pop) }, icon('close')),
+      ...body] : []));
   }
 
   // 도구 막대 아래에 펼쳐지는 칸.
@@ -2415,6 +2735,7 @@ export function createEditor({
     if (next.bg !== undefined) card.bg = cleanBg(next.bg);
     setMotion(next);
     sel = selId ? card.items.findIndex((it) => it.id === selId) : -1;
+    many = [];                         // 다른 사람이 바꾼 것을 끼워 넣으면 번호가 달라진다: 여럿 고른 것은 푼다
     if (selId && sel < 0) { pop = null; cut = null; }
     rebase(patch);
     const at = keepNode ? card.items.findIndex((it) => it.id === keepId) : -1;
@@ -2446,6 +2767,7 @@ export function createEditor({
     if (scene) scene.shown = -1;       // 같은 영상을 쓰는 다른 장이면 그 장의 첫 모습으로 맞춘다
     stopPreview();
     sel = -1;
+    many = [];
     others = [];
     past = [];
     future = [];

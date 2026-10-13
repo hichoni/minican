@@ -74,6 +74,21 @@ export const ICONS = {
   move: '<path d="M12 3.5v17M3.5 12h17M9.5 6L12 3.5 14.5 6M9.5 18l2.5 2.5 2.5-2.5M6 9.5L3.5 12 6 14.5M18 9.5l2.5 2.5-2.5 2.5"/>',
   // 함께하는 사람들(틴커랩 미니캔의 "함께 만드는 그림")
   people: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><circle cx="16.6" cy="9.4" r="2.6"/><path d="M15.4 14.3a4.6 4.6 0 0 1 5.1 5.2"/>',
+  // ---- 도구 막대: 펼치는 칸 · 여럿 고르기 ----
+  opacity: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" fill-opacity=".35" stroke="none"/><path d="M12 3.5v17"/>',
+  resize: '<path d="M4.5 10V4.5H10M14 19.5h5.5V14M4.5 4.5l6.5 6.5M19.5 19.5L13 13"/>',
+  mask: '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><circle cx="12" cy="12" r="4.8"/>',
+  cover: '<rect x="7.5" y="7.5" width="9" height="9" rx="1.5"/><path d="M3.5 8V3.5H8M16 3.5h4.5V8M20.5 16v4.5H16M8 20.5H3.5V16"/>',
+  corner: '<path d="M4.5 19.5V12a7.5 7.5 0 0 1 7.5-7.5h7.5"/>',
+  thick: '<path d="M4 6h16" stroke-width="1.2"/><path d="M4 11.5h16" stroke-width="2.4"/><path d="M4 17.5h16" stroke-width="4"/>',
+  highlight: '<rect x="4" y="4.5" width="16" height="11" rx="2"/><path d="M9 12.5l3-5.5 3 5.5M10.1 10.6h3.8M4 19.5h16"/>',
+  fill: '<path d="M5 12.5L11.5 6l6.5 6.5-6.5 6.5z"/><path d="M8.3 3.5l3.2 2.5M5 12.5h13"/><path d="M20 15.5s1.5 2 1.5 3a1.5 1.5 0 0 1-3 0c0-1 1.5-3 1.5-3z"/>',
+  border: '<rect x="4" y="4" width="16" height="16" rx="2.5" stroke-dasharray="3.2 2.6"/>',
+  chev: '<path d="M8 10l4 4 4-4"/>',
+  align: '<path d="M12 3.5v17"/><rect x="5" y="6" width="14" height="4.5" rx="1"/><rect x="8" y="13.5" width="8" height="4.5" rx="1"/>',
+  distH: '<path d="M4 4v16M20 4v16"/><rect x="9.5" y="8" width="5" height="8" rx="1"/>',
+  distV: '<path d="M4 4h16M4 20h16"/><rect x="8" y="9.5" width="8" height="5" rx="1"/>',
+  selectAll: '<rect x="3.5" y="3.5" width="17" height="17" rx="2" stroke-dasharray="3 3"/><path d="M8 12l2.8 2.8L16 9.5"/>',
 };
 
 /** 아이콘의 SVG 글(직접 넣을 때). 모르는 이름이면 빈 글. */

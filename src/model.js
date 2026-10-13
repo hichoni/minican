@@ -610,6 +610,54 @@ export function alignItem(item, where, hw = 0, hh = 0) {
   return { ...item, x: num(x, 0, 100, item.x), y: num(y, 0, 100, item.y) };
 }
 
+/**
+ * 여럿을 서로에게 맞춰 정렬할 때 각자의 새 가운데(캔바의 "여럿 고르고 정렬"). boxes: [{ x, y, hw, hh }]
+ * (가운데와, 화면에서 잰 반너비·반높이. 모두 카드 너비·높이를 100 으로 본 값). 고른 것들을 감싸는 상자의 그 변(가운데)에 맞춘다.
+ * where: 'left' · 'center' · 'right'(가로) · 'top' · 'middle' · 'bottom'(세로). 돌려주는 것: [{ x, y }] (받은 차례대로).
+ */
+export function alignBoxes(boxes, where) {
+  if (!boxes.length) return [];
+  const left = Math.min(...boxes.map((b) => b.x - b.hw));
+  const right = Math.max(...boxes.map((b) => b.x + b.hw));
+  const top = Math.min(...boxes.map((b) => b.y - b.hh));
+  const bottom = Math.max(...boxes.map((b) => b.y + b.hh));
+  return boxes.map((b) => ({
+    x: where === 'left' ? left + b.hw : where === 'right' ? right - b.hw : where === 'center' ? (left + right) / 2 : b.x,
+    y: where === 'top' ? top + b.hh : where === 'bottom' ? bottom - b.hh : where === 'middle' ? (top + bottom) / 2 : b.y,
+  }));
+}
+
+/**
+ * 고르게 펼치기: 양 끝의 것은 그대로 두고, 사이의 빈칸이 모두 같아지게 가운데를 옮긴다. axis: 'x'(가로) · 'y'(세로).
+ * 셋보다 적으면 옮길 것이 없어 받은 자리 그대로. 돌려주는 것: [{ x, y }] (받은 차례대로).
+ */
+export function distributeBoxes(boxes, axis) {
+  const out = boxes.map((b) => ({ x: b.x, y: b.y }));
+  if (boxes.length < 3 || (axis !== 'x' && axis !== 'y')) return out;
+  const half = axis === 'x' ? 'hw' : 'hh';
+  const order = boxes.map((_, i) => i).sort((a, b) => boxes[a][axis] - boxes[b][axis]);
+  const first = boxes[order[0]];
+  const last = boxes[order[order.length - 1]];
+  const start = first[axis] - first[half];
+  const gap = (last[axis] + last[half] - start - boxes.reduce((n, b) => n + 2 * b[half], 0)) / (boxes.length - 1);
+  let at = start;
+  for (const i of order) {
+    out[i][axis] = at + boxes[i][half];
+    at += 2 * boxes[i][half] + gap;
+  }
+  return out;
+}
+
+/** 여럿을 함께 옮길 때 움직일 수 있는 만큼으로 줄인 거리: 가운데가 카드 밖(0 ~ 100)으로 나가는 것이 없게 한다. [dx, dy] */
+export function clampShift(items, dx, dy) {
+  const xs = items.map((it) => it.x);
+  const ys = items.map((it) => it.y);
+  return [
+    Math.min(100 - Math.max(...xs), Math.max(-Math.min(...xs), dx)),
+    Math.min(100 - Math.max(...ys), Math.max(-Math.min(...ys), dy)),
+  ];
+}
+
 /** 사진을 카드에 꽉 차게 키워 가운데에 놓는다(배경처럼 깔 때). 기울기와 뒤집기는 그대로 둔다. */
 export function coverItem(item) {
   if (item.t !== 'image') return item;
