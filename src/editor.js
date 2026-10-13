@@ -1114,6 +1114,7 @@ export function createEditor({
     renderStage();
     renderUi();
     onChange();
+    keepKeys();                        // 다시 그려 누른 칸이 사라져도 Ctrl+Z 가 듣게
   }
 
   // 사진을 카드에 꽉 차게 키워 맨 뒤에 깐다.
@@ -1922,10 +1923,20 @@ export function createEditor({
       return;
     }
     if (!it) {
-      bar.replaceChildren(...always, el('span', { class: 'fe-hint', text: items().length
-        ? '요소를 누르면 꾸미는 도구가 나와요. Shift 를 누른 채 누르거나 빈 곳을 끌면 여럿을 함께 골라요.' : '옆 메뉴에서 템플릿이나 텍스트를 넣어 시작해요.' }));
-      popBox.hidden = true;
-      popBox.replaceChildren();
+      // 아무것도 고르지 않았을 때(카드의 빈 곳을 눌렀을 때): 카드에 할 일인 배경색을 바로 보인다(캔바처럼).
+      const ink = el('span', { class: 'fe-ink' });
+      ink.style.background = backgroundOf(card.bg).bg;
+      bar.replaceChildren(...always,
+        tb([icon('palette'), el('span', { class: 'fe-lbl', text: '배경색' }), ink], () => toggle('pagebg'), {
+          title: '카드의 배경색 바꾸기', name: '배경색', on: pop === 'pagebg', cls: 'has-pop pagebg',
+        }),
+        el('span', { class: 'fe-sep' }),
+        el('span', { class: 'fe-hint', text: items().length
+          ? '요소를 누르면 꾸미는 도구가 나와요 · Shift 누르기나 빈 곳 끌기로 여럿 고르기' : '옆 메뉴에서 템플릿이나 텍스트를 넣어 시작해요.' }));
+      const body = pop === 'pagebg' ? [el('div', { class: 'fe-poshead', text: '배경색' }), bgPicker(), el('p', { class: 'fe-note', text: bgNote })] : null;
+      popBox.hidden = !body;
+      popBox.replaceChildren(...(body ? [
+        el('button', { class: 'fe-pop-close', type: 'button', 'aria-label': '닫기', title: '닫기 (Esc)', onClick: () => toggle(pop) }, icon('close')), ...body] : []));
       return;
     }
     if (it.lock) {
@@ -2168,6 +2179,25 @@ export function createEditor({
         el('div', { class: 'fe-row' },
           el('button', { class: 'fe-btn primary fe-cut-go', type: 'button', disabled: saving || waiting, onClick: applyCut }, saving ? '지우는 중…' : '이대로 지우기'),
           pbtn('취소', () => toggle('cut'), { disabled: saving }))))];
+  }
+
+  // ---------- 배경색 고르기(옆 메뉴의 배경 칸과, 아무것도 고르지 않았을 때 도구 막대의 "배경색" 칸이 함께 쓴다) ----------
+  const bgNote = '사진을 배경으로 쓰려면 업로드에서 사진을 넣고, 사진을 고른 뒤 "배경으로 깔기"를 눌러요.';
+  function bgPicker() {
+    const now = backgroundOf(card.bg);
+    const custom = el('input', {
+      class: `fe-bgsw fe-bgcustom${String(card.bg).startsWith('#') ? ' on' : ''}`, type: 'color', value: now.bg,
+      'aria-label': '배경 색 직접 고르기', title: '다른 색 고르기', onChange: () => setBg(custom.value),
+    });
+    return el('div', { class: 'fe-bgs', role: 'group', 'aria-label': '배경 색' }, ...settings().backgrounds.map((b) => {
+      const sw = el('button', {
+        class: `fe-bgsw${card.bg === b.id ? ' on' : ''}`, type: 'button', 'aria-label': `배경 ${b.name}`, 'aria-pressed': String(card.bg === b.id), title: b.name,
+        onClick: () => setBg(b.id),
+      }, '가');
+      sw.style.background = b.bg;
+      sw.style.color = b.ink;
+      return sw;
+    }), custom);
   }
 
   // ---------- 옆 메뉴 ----------
@@ -2457,25 +2487,7 @@ export function createEditor({
         el('p', { class: 'fe-note', text: '내가 찍거나 그린 것, 허락을 받은 것만 올리고, 얼굴·이름 같은 개인 정보가 없는지 살펴봐요.' }),
       ];
     }
-    if (tab === 'bg') {
-      const now = backgroundOf(card.bg);
-      const custom = el('input', {
-        class: `fe-bgsw fe-bgcustom${String(card.bg).startsWith('#') ? ' on' : ''}`, type: 'color', value: now.bg,
-        'aria-label': '배경 색 직접 고르기', title: '다른 색 고르기', onChange: () => setBg(custom.value),
-      });
-      return [
-        el('div', { class: 'fe-bgs', role: 'group', 'aria-label': '배경 색' }, ...settings().backgrounds.map((b) => {
-          const sw = el('button', {
-            class: `fe-bgsw${card.bg === b.id ? ' on' : ''}`, type: 'button', 'aria-label': `배경 ${b.name}`, 'aria-pressed': String(card.bg === b.id), title: b.name,
-            onClick: () => setBg(b.id),
-          }, '가');
-          sw.style.background = b.bg;
-          sw.style.color = b.ink;
-          return sw;
-        }), custom),
-        el('p', { class: 'fe-note', text: '사진을 배경으로 쓰려면 업로드에서 사진을 넣고, 사진을 고른 뒤 "배경으로 깔기"를 눌러요.' }),
-      ];
-    }
+    if (tab === 'bg') return [bgPicker(), el('p', { class: 'fe-note', text: bgNote })];
     // 레이어: 겹친 순서대로(위에 보이는 것부터). 가려져서 누르기 어려운 것도 여기서 고를 수 있다.
     // 줄을 끌어서 순서를 바꾼다: 마우스는 줄 어디든, 손가락은 왼쪽의 손잡이(목록을 넘기는 것과 헷갈리지 않게). 손잡이에서 ↑ ↓ 글쇠로도 옮긴다.
     const list = el('div', { class: 'fe-layers' });
