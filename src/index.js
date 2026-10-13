@@ -20,6 +20,7 @@ export { registerFonts, fontReady } from './fonts.js';
 export { shrinkImage, readPixels, canvasToPng, ACCEPT_IMAGES } from './images.js';
 export { removeBackground, borderColor, TOLERANCE, refineCutout, colorAlpha, plainBorder } from './cutout.js';
 export { STICKERS, searchStickers } from './stickers.js';
+export { ART_PACKS, isArtId, artPack, artAspect, artColorable, loadArt, artReady, artName, artSvg, searchArt } from './art.js';
 export { toast } from './dom.js';
 export * from './motion.js';
 export * from './model.js';

@@ -8,6 +8,7 @@ import { el } from './dom.js';
 import { designView, itemView, paintCard } from './render.js';
 import { sceneView, scenesReady } from './scene.js';
 import { cleanDesign, settings, fontList, fontFamilyOf } from './model.js';
+import { loadArt } from './art.js';
 
 const toDataUrl = (blob) => new Promise((resolve, reject) => {
   const r = new FileReader();
@@ -102,6 +103,7 @@ export async function designToCanvas(design, { width = 1080, aspect = settings()
   const H = Math.max(16, Math.round(W / ratio));
   // 영상 장면이 있으면 그 첫 모습이 바탕에 그림으로 들어간다(그림 파일에는 영상이 움직이지 않는다).
   // 영상 파일이 이 기기에 없으면 카드의 바탕색만 나온다(화면의 "영상이 없어요" 이름표는 내보내지 않는다).
+  if (d.items.some((it) => it.t === 'art')) await loadArt();          // 그림 묶음의 그림은 그리기 전에 불러 둔다
   const card = designView(d, { sceneEdge: sceneEdgeFor(W, H), sceneNote: false });
   card.style.setProperty('--fe-ratio', String(ratio));
   card.style.setProperty('--fe-card-radius', '0');
@@ -123,6 +125,7 @@ export async function designToCanvas(design, { width = 1080, aspect = settings()
  * 돌려주는 것: { canvas, missingFonts }
  */
 export async function designSheet(design, cells, { width, height, sheetWidth, sheetHeight }) {
+  if (design.items.some((it) => it.t === 'art')) await loadArt();
   const root = el('div');
   root.style.cssText = `position:relative;width:${sheetWidth}px;height:${sheetHeight}px;overflow:hidden;`;
   for (const c of cells) {

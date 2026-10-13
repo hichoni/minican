@@ -1,0 +1,622 @@
+# 이름|한국어 이름과 찾는 낱말(첫 낱말이 화면에 보이는 이름). 이름은 그림 묶음 원본의 이름이고, 한 번 정하면 바꾸지 않는다(그림에 저장된다).
+# 학교·공부
+school|학교 건물 등교
+backpack|책가방 가방 등교 준비물
+books|책 책들 독서 도서관 공부
+open-book|펼친 책 읽기 독서 공부
+closed-book|책 표지 독서
+green-book|초록 책 교과서
+blue-book|파란 책 교과서
+orange-book|주황 책 교과서
+notebook|공책 노트 필기
+notebook-with-decorative-cover|꾸민 공책 일기장 노트
+ledger|장부 공책 기록
+memo|메모 쓰기 글 숙제 기록
+pencil|연필 쓰기 필기 글쓰기
+pen|펜 볼펜 쓰기 서명
+fountain-pen|만년필 펜 글씨
+black-nib|펜촉 글씨 쓰기
+crayon|크레파스 크레용 색칠 그리기
+paintbrush|붓 그림 미술 색칠
+artist-palette|팔레트 미술 그림 물감 작품
+straight-ruler|자 측정 길이 수학
+triangular-ruler|삼각자 수학 도형 각도
+abacus|주판 셈 수학 계산
+scissors|가위 오리기 만들기 미술
+linked-paperclips|클립 연결 첨부
+pushpin|압정 게시판 붙이기 고정
+round-pushpin|핀 위치 장소 지도
+clipboard|클립보드 체크리스트 기록 점검
+spiral-notepad|수첩 메모장 기록
+spiral-calendar|달력 일정 날짜 계획
+calendar|달력 날짜 일정
+tear-off-calendar|일력 날짜 오늘
+card-index|색인 카드 정리
+file-folder|폴더 파일 정리 자료
+open-file-folder|열린 폴더 자료
+page-facing-up|문서 종이 자료 학습지
+page-with-curl|종이 문서 학습지
+bookmark|책갈피 표시
+bookmark-tabs|책갈피 탭 정리
+label|이름표 꼬리표 라벨
+graduation-cap|학사모 졸업 졸업식 배움
+scroll|두루마리 문서 역사 상장
+newspaper|신문 기사 뉴스 소식
+bar-chart|막대그래프 그래프 통계 자료
+chart-increasing|오르는 그래프 성장 증가
+chart-decreasing|내리는 그래프 감소 하락
+microscope|현미경 과학 관찰 실험
+telescope|망원경 우주 별 관찰
+test-tube|시험관 과학 실험
+petri-dish|페트리 접시 미생물 실험
+alembic|증류기 화학 실험
+dna|디엔에이 유전자 생명 과학
+magnet|자석 과학 끌림
+atom-symbol|원자 과학
+light-bulb|전구 아이디어 생각 발명
+magnifying-glass-tilted-left|돋보기 찾기 탐구 조사 검색
+compass|나침반 방향 길찾기
+world-map|세계 지도 지리 나라
+globe-showing-asia-australia|지구 아시아 세계 지구본
+globe-with-meridians|지구 인터넷 세계 누리망
+puzzle-piece|퍼즐 조각 문제 해결 협력
+bullseye|과녁 목표 정답 명중
+1st-place-medal|금메달 일등 1등 우승
+2nd-place-medal|은메달 이등 2등
+3rd-place-medal|동메달 삼등 3등
+sports-medal|메달 상 운동회
+trophy|트로피 우승 상 칭찬
+military-medal|훈장 상 칭찬
+rosette|리본 배지 상
+hundred-points|백점 100점 만점 최고
+check-mark-button|체크 확인 맞음 완료
+check-box-with-check|체크박스 완료 확인
+cross-mark|엑스 틀림 아니요 안 돼요
+cross-mark-button|엑스 단추 틀림
+red-question-mark|물음표 질문 궁금 퀴즈
+red-exclamation-mark|느낌표 중요 주의
+exclamation-question-mark|느낌표 물음표 놀람 궁금
+warning|경고 주의 조심 위험
+no-entry|진입 금지 금지 안 돼요
+prohibited|금지 하지 않기
+stop-sign|멈춤 정지 그만
+recycling-symbol|재활용 분리수거 환경
+litter-in-bin-sign|쓰레기통 버리기 분리수거
+information|정보 안내 알림
+speech-balloon|말풍선 대화 말하기 의견
+thought-balloon|생각 풍선 생각하기 상상
+right-anger-bubble|화남 말풍선 짜증
+left-speech-bubble|말풍선 왼쪽 대화
+megaphone|확성기 안내 발표 알림
+loudspeaker|스피커 방송 알림
+bell|종 알림 수업 시작
+hourglass-not-done|모래시계 시간 기다리기
+hourglass-done|모래시계 끝 시간 종료
+alarm-clock|자명종 시계 알람 시간
+stopwatch|초시계 시간 재기 운동
+timer-clock|타이머 시간 제한
+watch|손목시계 시간
+mantelpiece-clock|탁상시계 시간
+# 기술·디지털
+laptop|노트북 컴퓨터 디지털 코딩
+desktop-computer|컴퓨터 데스크톱 모니터
+mobile-phone|휴대폰 스마트폰 핸드폰
+mobile-phone-off|휴대폰 끄기 디지털 디톡스
+mobile-phone-with-arrow|휴대폰 전화 받기
+keyboard|키보드 타자 입력
+computer-mouse|마우스 클릭 컴퓨터
+printer|프린터 인쇄 출력
+robot|로봇 인공지능 AI 코딩
+joystick|조이스틱 게임
+video-game|게임기 비디오 게임 게임
+headphone|헤드폰 음악 듣기
+camera|카메라 사진 찍기
+camera-with-flash|카메라 플래시 사진
+video-camera|비디오카메라 촬영 영상
+movie-camera|영화 카메라 촬영
+clapper-board|슬레이트 영화 촬영 영상
+film-frames|필름 영화 영상
+television|텔레비전 티브이 방송
+radio|라디오 방송 듣기
+satellite-antenna|안테나 통신 신호
+satellite|인공위성 우주 통신
+battery|배터리 충전 에너지
+low-battery|배터리 부족 충전
+electric-plug|전기 플러그 충전
+wireless|와이파이 무선 인터넷
+antenna-bars|신호 안테나 연결
+link|링크 연결 주소
+locked|자물쇠 잠금 보안 비밀번호
+unlocked|잠금 해제 열림
+locked-with-key|열쇠 자물쇠 보안
+key|열쇠 비밀번호 로그인
+old-key|옛날 열쇠 비밀
+shield|방패 보호 안전 보안
+identification-card|신분증 개인 정보 카드
+name-badge|이름표 명찰
+envelope|편지 봉투 메일 이메일
+e-mail|이메일 메일 전자우편
+love-letter|러브레터 편지 마음
+inbox-tray|받은 편지함 받기
+outbox-tray|보낸 편지함 보내기
+package|택배 상자 소포
+gear|톱니바퀴 설정 기계
+hammer-and-wrench|공구 도구 고치기 만들기
+toolbox|공구함 도구 만들기
+wrench|스패너 고치기 도구
+nut-and-bolt|볼트 너트 만들기
+magic-wand|요술봉 마법 신기
+crystal-ball|수정구 예측 미래
+# 얼굴·감정
+grinning-face|웃는 얼굴 기쁨 행복
+grinning-face-with-big-eyes|활짝 웃음 기쁨
+beaming-face-with-smiling-eyes|활짝 웃는 얼굴 신남
+grinning-squinting-face|깔깔 웃음 재미
+face-with-tears-of-joy|웃겨서 눈물 재미있다
+rolling-on-the-floor-laughing|데굴데굴 웃음 웃기다
+slightly-smiling-face|살짝 웃음 미소 괜찮아
+smiling-face-with-smiling-eyes|수줍은 미소 행복
+smiling-face-with-halo|천사 착함 친절
+smiling-face-with-hearts|사랑 하트 좋아요
+smiling-face-with-heart-eyes|하트 눈 반함 좋아
+star-struck|별 눈 감탄 멋지다
+partying-face|파티 축하 생일 신남
+smiling-face-with-sunglasses|선글라스 멋짐 자신감
+nerd-face|공부 안경 똑똑 공부벌레
+face-with-monocle|살펴보기 탐구 의심
+thinking-face|생각 고민 궁금 음
+face-with-raised-eyebrow|의심 갸우뚱
+neutral-face|무표정 보통
+expressionless-face|무표정 할 말 없음
+face-without-mouth|말 없음 조용
+shushing-face|쉿 조용 비밀
+face-with-hand-over-mouth|입 가림 깜짝 웃음
+zipper-mouth-face|입 다물기 비밀 지키기
+hugging-face|안아주기 포옹 위로
+winking-face|윙크 장난
+upside-down-face|거꾸로 얼굴 장난
+melting-face|녹는 얼굴 더위 민망
+sleepy-face|졸림 피곤
+sleeping-face|잠 자는 쿨쿨
+yawning-face|하품 졸림 지루함
+tired-face|지침 피곤 힘들다
+weary-face|지친 얼굴 힘듦
+pensive-face|생각에 잠김 우울 반성
+disappointed-face|실망 아쉬움
+worried-face|걱정 불안
+confused-face|헷갈림 혼란 모르겠다
+slightly-frowning-face|시무룩 서운
+frowning-face|찡그림 속상
+crying-face|울음 슬픔 눈물
+loudly-crying-face|엉엉 울음 슬픔
+face-holding-back-tears|눈물 참기 감동
+pleading-face|부탁 애원 제발
+angry-face|화남 분노 짜증
+face-with-steam-from-nose|씩씩 화남 의욕
+pouting-face|뾰로통 화남
+astonished-face|깜짝 놀람
+face-screaming-in-fear|비명 무서움 공포
+fearful-face|무서움 걱정
+anxious-face-with-sweat|진땀 긴장 불안
+grinning-face-with-sweat|진땀 웃음 민망
+flushed-face|부끄러움 당황
+hot-face|더워요 더위 열
+cold-face|추워요 추위
+woozy-face|어지러움 멍함
+face-with-spiral-eyes|어질어질 혼란
+exploding-head|머리 폭발 충격 대박
+face-with-medical-mask|마스크 아픔 감기
+face-with-thermometer|체온계 열 아픔
+face-with-head-bandage|붕대 다침 아픔
+sneezing-face|재채기 감기
+nauseated-face|메스꺼움 아픔
+cowboy-hat-face|카우보이 모자 신남
+clown-face|광대 웃음
+ghost|유령 귀신 할로윈
+alien|외계인 우주
+alien-monster|우주 괴물 게임
+pile-of-poo|똥 웃기다
+skull|해골 위험
+# 손짓
+thumbs-up|좋아요 최고 칭찬 엄지
+thumbs-down|싫어요 별로 엄지 아래
+clapping-hands|박수 칭찬 축하 잘했어
+raising-hands|만세 기쁨 환호
+waving-hand|손 흔들기 안녕 인사
+raised-hand|손 들기 발표 질문 멈춰
+victory-hand|브이 승리 평화
+ok-hand|오케이 좋아 괜찮아
+crossed-fingers|행운 빌기 기도
+folded-hands|부탁 감사 기도
+handshake|악수 약속 협력 화해
+heart-hands|하트 손 사랑
+writing-hand|글 쓰는 손 필기 쓰기
+flexed-biceps|힘 근육 화이팅 응원
+index-pointing-up|하나 위 집중 주목
+backhand-index-pointing-right|오른쪽 가리키기
+backhand-index-pointing-left|왼쪽 가리키기
+backhand-index-pointing-down|아래 가리키기
+backhand-index-pointing-up|위 가리키기
+index-pointing-at-the-viewer|너 당신 가리키기
+open-hands|두 손 펼치기 환영
+palms-up-together|두 손 모아 받기
+call-me-hand|전화해 연락
+love-you-gesture|사랑해 손짓
+pinched-fingers|뭐야 이탈리아 손
+oncoming-fist|주먹 인사 화이팅
+eyes|눈 보다 관찰 주목
+eye|눈 보기
+ear|귀 듣기 경청
+nose|코 냄새
+mouth|입 말하기
+brain|뇌 생각 두뇌 기억
+anatomical-heart|심장 몸
+lungs|폐 숨 몸
+tooth|이 치아 양치
+footprints|발자국 걸음 흔적
+# 사람
+baby|아기 갓난아기
+child|어린이 아이 학생
+boy|남자아이 소년 학생
+girl|여자아이 소녀 학생
+person|사람 친구
+man|남자 어른 아빠
+woman|여자 어른 엄마
+older-person|어르신 노인
+old-man|할아버지 노인
+old-woman|할머니 노인
+man-teacher|남자 선생님 교사
+woman-teacher|여자 선생님 교사
+man-student|남학생 학생 공부
+woman-student|여학생 학생 공부
+scientist|과학자 연구 실험
+woman-scientist|여자 과학자 연구
+man-scientist|남자 과학자 연구
+technologist|개발자 코딩 컴퓨터
+woman-technologist|여자 개발자 코딩
+man-technologist|남자 개발자 코딩
+artist|화가 미술가 예술가
+woman-artist|여자 화가 미술
+astronaut|우주비행사 우주
+woman-astronaut|여자 우주비행사
+cook|요리사 요리
+farmer|농부 농사
+firefighter|소방관 불 안전
+police-officer|경찰관 경찰 안전
+health-worker|의사 간호사 병원 건강
+woman-health-worker|여자 의사 간호사
+mechanic|정비사 수리 기계
+construction-worker|건설 노동자 공사
+office-worker|회사원 사무
+detective|탐정 조사 수수께끼
+judge|판사 재판 법
+pilot|조종사 비행기
+singer|가수 노래
+person-superhero|영웅 슈퍼히어로 히어로
+woman-superhero|여자 영웅 히어로
+ninja|닌자 몰래
+person-raising-hand|손 드는 사람 질문 발표
+woman-raising-hand|손 드는 여자 질문 발표
+man-raising-hand|손 드는 남자 질문 발표
+person-tipping-hand|안내하는 사람 정보
+person-gesturing-ok|오케이 하는 사람 좋아요
+person-gesturing-no|안 돼요 하는 사람 금지
+person-bowing|인사 고개 숙이기 죄송 감사
+person-shrugging|어깨 으쓱 모르겠다
+person-facepalming|이마 짚기 아이고 실수
+person-running|달리기 뛰는 사람 운동
+person-walking|걷는 사람 산책
+person-biking|자전거 타는 사람
+person-swimming|수영하는 사람
+person-climbing|등반 오르기 도전
+person-cartwheeling|옆돌기 체조
+person-juggling|저글링 여러 일
+person-in-lotus-position|명상 요가 차분
+person-in-bed|잠자는 사람 침대
+people-hugging|포옹 안아주기 위로 친구
+busts-in-silhouette|사람들 그룹 모둠 친구들
+bust-in-silhouette|사람 실루엣 익명 개인
+speaking-head|말하는 사람 발표 말하기
+# 동물
+dog-face|강아지 개 반려동물
+dog|개 강아지
+cat-face|고양이 반려동물
+cat|고양이
+mouse-face|생쥐 쥐
+hamster|햄스터 반려동물
+rabbit-face|토끼 동물
+fox|여우 동물
+bear|곰 동물
+panda|판다 동물
+koala|코알라 동물
+tiger-face|호랑이 동물
+lion|사자 동물
+cow-face|소 동물 농장
+pig-face|돼지 동물 농장
+frog|개구리 동물
+monkey-face|원숭이 동물
+see-no-evil-monkey|눈 가린 원숭이 안 봐요
+hear-no-evil-monkey|귀 막은 원숭이 안 들어요
+speak-no-evil-monkey|입 막은 원숭이 말 안 해요
+chicken|닭 농장
+baby-chick|병아리 아기새
+hatching-chick|알에서 나오는 병아리 탄생
+penguin|펭귄 남극
+bird|새 날다
+owl|부엉이 올빼미 지혜
+eagle|독수리 새
+duck|오리 새
+dove|비둘기 평화
+parrot|앵무새 따라 말하기
+peacock|공작 새
+flamingo|플라밍고 새
+turtle|거북 느림
+snake|뱀 동물
+t-rex|티라노 공룡
+sauropod|목긴 공룡 공룡
+dragon|용 상상
+unicorn|유니콘 상상
+whale|고래 바다
+dolphin|돌고래 바다
+fish|물고기 바다
+tropical-fish|열대어 물고기
+octopus|문어 바다
+shark|상어 바다
+crab|게 바다
+snail|달팽이 느림
+butterfly|나비 곤충 변태
+honeybee|꿀벌 곤충 협동
+lady-beetle|무당벌레 곤충
+ant|개미 곤충 협동
+bug|벌레 애벌레 버그
+spider|거미 곤충
+elephant|코끼리 동물
+giraffe|기린 동물
+zebra|얼룩말 동물
+hedgehog|고슴도치 동물
+sloth|나무늘보 느림 휴식
+otter|수달 동물
+paw-prints|발자국 동물 흔적
+# 자연·날씨
+seedling|새싹 성장 자람 식물
+potted-plant|화분 식물 기르기
+herb|풀 잎 식물
+four-leaf-clover|네잎클로버 행운
+deciduous-tree|나무 숲 자연
+evergreen-tree|상록수 나무 숲
+palm-tree|야자나무 여름 섬
+cactus|선인장 사막
+maple-leaf|단풍잎 가을
+fallen-leaf|낙엽 가을
+leaf-fluttering-in-wind|바람에 날리는 잎 바람
+sunflower|해바라기 꽃 여름
+tulip|튤립 꽃 봄
+cherry-blossom|벚꽃 꽃 봄
+blossom|꽃 봄
+rose|장미 꽃
+hibiscus|히비스커스 꽃
+bouquet|꽃다발 축하 선물
+mushroom|버섯 숲
+sun|해 태양 맑음 날씨
+sun-with-face|웃는 해 맑음
+sun-behind-cloud|구름 조금 날씨
+sun-behind-rain-cloud|해 비 날씨
+cloud|구름 흐림 날씨
+cloud-with-rain|비 구름 날씨
+cloud-with-lightning-and-rain|천둥 번개 비 날씨
+cloud-with-snow|눈 구름 날씨 겨울
+snowflake|눈송이 겨울 눈
+snowman|눈사람 겨울
+rainbow|무지개 날씨 희망
+umbrella-with-rain-drops|우산 비 장마
+droplet|물방울 물 절약
+water-wave|파도 바다 물결
+fire|불 불꽃 열정 뜨거움
+high-voltage|번개 전기 에너지 빠름
+tornado|회오리 태풍 바람
+volcano|화산 지구 과학
+mountain|산 자연
+snow-capped-mountain|눈 덮인 산 겨울 산
+desert-island|섬 바다 여행
+crescent-moon|초승달 달 밤
+full-moon|보름달 달 밤
+new-moon|그믐달 달 밤
+first-quarter-moon|상현달 달
+last-quarter-moon|하현달 달
+star|별 밤 칭찬
+glowing-star|반짝이는 별 칭찬 최고
+sparkles|반짝임 새로움 마법 꾸미기
+shooting-star|별똥별 소원
+comet|혜성 우주
+ringed-planet|토성 행성 우주
+milky-way|은하수 우주 밤하늘
+rocket|로켓 우주 발사 출발 도전
+flying-saucer|비행접시 외계인 우주
+globe-showing-americas|지구 아메리카 세계
+globe-showing-europe-africa|지구 유럽 아프리카 세계
+# 음식
+red-apple|사과 과일 빨강
+green-apple|풋사과 과일 초록
+banana|바나나 과일
+grapes|포도 과일
+strawberry|딸기 과일
+watermelon|수박 과일 여름
+tangerine|귤 과일 오렌지
+lemon|레몬 과일
+peach|복숭아 과일
+cherries|체리 과일
+pineapple|파인애플 과일
+carrot|당근 채소
+broccoli|브로콜리 채소
+tomato|토마토 채소
+ear-of-corn|옥수수 채소
+potato|감자 채소
+cooked-rice|밥 쌀밥 식사
+rice-ball|주먹밥 김밥 식사
+bento-box|도시락 점심 식사
+steaming-bowl|국수 라면 국
+bread|빵 식사
+egg|달걀 계란
+cooking|프라이팬 요리 달걀
+pizza|피자 음식
+hamburger|햄버거 음식
+french-fries|감자튀김 음식
+hot-dog|핫도그 음식
+spaghetti|스파게티 국수
+sushi|초밥 음식
+dumpling|만두 음식
+birthday-cake|생일 케이크 축하
+shortcake|케이크 간식
+cupcake|컵케이크 간식
+cookie|쿠키 간식
+doughnut|도넛 간식
+ice-cream|아이스크림 간식 여름
+soft-ice-cream|소프트아이스크림 간식
+lollipop|사탕 막대사탕 간식
+candy|사탕 간식
+chocolate-bar|초콜릿 간식
+popcorn|팝콘 영화 간식
+glass-of-milk|우유 음료
+hot-beverage|따뜻한 음료 차 커피
+bubble-tea|버블티 음료
+cup-with-straw|음료 컵 빨대
+fork-and-knife-with-plate|식사 밥 먹기 급식
+fork-and-knife|포크 나이프 식사
+spoon|숟가락 식사
+chopsticks|젓가락 식사
+# 탈것·장소
+automobile|자동차 차 교통
+bus|버스 교통 통학
+taxi|택시 교통
+police-car|경찰차 경찰
+ambulance|구급차 병원 응급
+fire-engine|소방차 불 안전
+bicycle|자전거 교통 운동
+kick-scooter|킥보드 탈것
+train|기차 교통 여행
+high-speed-train|고속열차 기차 여행
+metro|지하철 교통
+airplane|비행기 여행 하늘
+helicopter|헬리콥터 하늘
+sailboat|돛단배 배 바다
+ship|배 여객선 바다
+vertical-traffic-light|신호등 교통 안전 건너기
+construction|공사 중 주의
+house|집 가정
+house-with-garden|정원 있는 집 가정
+houses|마을 집들 동네
+office-building|빌딩 회사 건물
+hospital|병원 건강
+bank|은행 돈
+post-office|우체국 편지
+convenience-store|편의점 가게
+department-store|백화점 쇼핑
+factory|공장 만들기
+stadium|경기장 운동장 체육
+classical-building|박물관 미술관 건물 역사
+castle|성 궁전 옛날
+tent|텐트 캠핑
+camping|캠핑 야영 자연
+national-park|공원 국립공원 자연
+fountain|분수 공원
+ferris-wheel|관람차 놀이공원
+roller-coaster|롤러코스터 놀이공원
+playground-slide|미끄럼틀 놀이터
+circus-tent|서커스 공연
+cityscape|도시 빌딩 풍경
+sunrise-over-mountains|일출 산 아침
+night-with-stars|별 밤 밤하늘
+# 운동·놀이·예술
+soccer-ball|축구공 축구 운동
+basketball|농구공 농구 운동
+baseball|야구공 야구 운동
+volleyball|배구공 배구 운동
+tennis|테니스 운동
+badminton|배드민턴 운동
+ping-pong|탁구 운동
+bowling|볼링 운동
+skateboard|스케이트보드 운동
+roller-skate|롤러스케이트 운동
+ice-skate|스케이트 겨울 운동
+skis|스키 겨울 운동
+goal-net|골대 목표 축구
+kite|연 날리기 바람
+yo-yo|요요 놀이
+teddy-bear|곰인형 장난감
+game-die|주사위 놀이 확률 게임
+chess-pawn|체스 말 전략 게임
+balloon|풍선 축하 파티
+party-popper|폭죽 축하 파티 생일
+wrapped-gift|선물 상자 생일 축하
+ribbon|리본 선물 꾸미기
+fireworks|불꽃놀이 축하
+sparkler|불꽃 막대 축하
+christmas-tree|크리스마스 트리 겨울 성탄절
+jack-o-lantern|호박 할로윈
+musical-note|음표 음악 노래
+musical-notes|음표들 음악 노래
+musical-score|악보 음악
+microphone|마이크 노래 발표 말하기
+guitar|기타 악기 음악
+musical-keyboard|피아노 건반 악기
+trumpet|트럼펫 악기
+drum|북 드럼 악기
+performing-arts|가면 연극 공연
+framed-picture|액자 그림 작품 전시
+ticket|티켓 표 입장
+admission-tickets|입장권 표 공연
+# 마음·기호
+red-heart|빨간 하트 사랑 좋아요
+orange-heart|주황 하트 사랑
+yellow-heart|노란 하트 우정
+green-heart|초록 하트 환경
+blue-heart|파란 하트 믿음
+purple-heart|보라 하트 사랑
+pink-heart|분홍 하트 사랑
+sparkling-heart|반짝이는 하트 사랑
+growing-heart|커지는 하트 사랑
+two-hearts|두 하트 사랑 우정
+heart-with-ribbon|리본 하트 선물 마음
+mending-heart|붕대 하트 회복 위로
+broken-heart|깨진 하트 슬픔 상처
+collision|쾅 충돌 강조
+dizzy|어지러움 별
+sweat-droplets|땀방울 물방울
+dashing-away|휙 빠르게 달리기
+zzz|쿨쿨 잠 졸림
+anger-symbol|화남 표시 짜증
+plus|더하기 덧셈 수학
+minus|빼기 뺄셈 수학
+multiply|곱하기 곱셈 수학
+divide|나누기 나눗셈 수학
+heavy-equals-sign|같다 등호 수학
+infinity|무한 끝없이
+up-arrow|위쪽 화살표 올라가기
+down-arrow|아래쪽 화살표 내려가기
+left-arrow|왼쪽 화살표
+right-arrow|오른쪽 화살표 다음
+repeat-button|반복 다시 순환
+counterclockwise-arrows-button|되돌리기 순환
+play-button|재생 시작 플레이
+pause-button|일시 정지 멈춤
+red-circle|빨간 동그라미 정답
+blue-circle|파란 동그라미
+yellow-circle|노란 동그라미
+green-circle|초록 동그라미 통과
+red-square|빨간 네모
+blue-square|파란 네모
+yellow-square|노란 네모
+green-square|초록 네모
+white-flag|흰 깃발 항복
+triangular-flag|깃발 표시 목표
+chequered-flag|체크무늬 깃발 결승 완주
+crown|왕관 왕 최고 1등
+gem-stone|보석 소중함
+money-bag|돈 자루 경제 부자
+coin|동전 돈 경제 저금
+dollar-banknote|지폐 돈 경제
+credit-card|카드 결제 경제
+shopping-cart|장바구니 쇼핑 경제
+balance-scale|저울 공평 정의 법
+peace-symbol|평화 표시
+yin-yang|음양 균형

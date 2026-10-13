@@ -1,0 +1,9 @@
+Open Peeps — hand-drawn illustration library by Pablo Stanley
+https://www.openpeeps.com
+
+Open Peeps is released under CC0 1.0 Universal (Public Domain Dedication):
+you can copy, modify and use the illustrations, also commercially, without asking permission
+and without attribution. https://creativecommons.org/publicdomain/zero/1.0/
+
+The SVG parts were taken from the npm package @opeepsfun/open-peeps 1.0.6 (MIT, Emre Çakır,
+https://opeeps.fun) and composed into the busts in peeps.js by tools/art/peeps.cjs.

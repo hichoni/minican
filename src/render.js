@@ -2,6 +2,7 @@
 import { el } from './dom.js';
 import { backgroundOf, cleanDesign, fontFamilyOf, settings } from './model.js';
 import { shapeAsset, shapeSvg } from './shapes.js';
+import { artSvg, loadArt, artReady } from './art.js';
 import { sceneView } from './scene.js';
 
 /**
@@ -26,6 +27,11 @@ export function itemView(item) {
     // 도형·꾸밈 요소: 그림은 shapes.js 의 것(색은 글자색을 따른다). CSS 로 그리는 것(네모·동그라미·선 …)은 속이 비어 있다.
     node = el('div', { class: `fi fi-shape sh-${item.shape}`, html: shapeSvg(item.shape) });
     node.style.color = item.color;
+  } else if (item.t === 'art') {
+    // 그림 묶음의 그림: 묶음을 아직 불러오지 않았으면 불러온 뒤에 채운다(그림으로 내보낼 때는 내보내기가 먼저 불러 둔다).
+    node = el('div', { class: 'fi fi-art', html: artSvg(item.art) });
+    if (item.color) node.style.color = item.color;
+    if (!artReady()) loadArt().then(() => { node.innerHTML = artSvg(item.art); }).catch(() => node.classList.add('broken'));
   } else {
     node = el('img', { class: `fi fi-image mk-${item.mask}`, src: item.url, alt: '', draggable: 'false', onError: () => node.classList.add('broken') });
   }

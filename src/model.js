@@ -11,6 +11,7 @@
 //
 // 프로젝트마다 다른 것(글꼴 목록, 어떤 그림 주소를 믿을지, 카드 비율, 개수 한도)은 configure() 로 한 번 정해 둔다.
 import { SHAPE_ASSETS, SHAPE_GROUPS, shapeAsset } from './shapes.js';
+import { isArtId, artColorable, artAspect, artPack, artName } from './art.js';
 import { ENTER_IDS, COMBO_IDS, TRANSITION_IDS, STILL } from './motion.js';
 
 export { SHAPE_GROUPS };
@@ -271,6 +272,13 @@ export function cleanItem(item, { keepSpaces = false } = {}) {
     }
     return out;
   }
+  if (it.t === 'art') {
+    // 그림 묶음의 그림(art.js): 이름만 저장한다. 한 가지 색으로 그린 묶음(선 아이콘 · 픽셀)만 색을 적는다.
+    if (!isArtId(it.art) || !artPack(it.art)) return null;
+    const out = { t: 'art', ...base, ...flip, w: num(it.w, SIZE.min, SIZE.max, 22), h: num(it.h, 0.6, SIZE.max, 22), art: it.art };
+    if (artColorable(it.art)) out.color = cleanColor(it.color, '#1d2433');
+    return out;
+  }
   if (it.t === 'image') {
     const img = cleanImg(it);
     if (!img) return null;
@@ -414,6 +422,13 @@ function photoMax() {
 export function newShape(shape, extra = {}) {
   const a = shapeAsset(shape) || shapeAsset('rect');
   return cleanItem({ t: 'shape', x: 50, y: 50, shape: a.id, color: a.color, w: a.w, h: tall(a.h), r: a.r, ...extra });
+}
+/** 그림 묶음의 그림(art.js): 그 묶음의 기본 너비로, 그림의 비율을 지켜 가운데에 놓는다. 모르는 이름이면 null. */
+export function newArt(id, extra = {}) {
+  const pack = artPack(id);
+  if (!pack) return null;
+  const w = pack.w;
+  return cleanItem({ t: 'art', x: 50, y: 50, art: id, w, h: tall(w / artAspect(id)), ...(pack.color ? { color: '#1d2433' } : {}), ...extra });
 }
 /** 선의 굵기(카드 너비를 100 으로 본 값). 막대는 1~15 단계이고 한 단계가 step 이다. */
 export const THICK = { min: 0.8, max: 6.4, step: 0.4 };
@@ -583,6 +598,7 @@ export function itemLabel(it) {
   if (it.t === 'text') return `텍스트: ${(it.text || '(빈 글)').replace(/\s+/g, ' ').slice(0, 10)}`;
   if (it.t === 'emoji') return `그래픽 ${it.ch}`;
   if (it.t === 'shape') return `도형: ${SHAPES.find((s) => s.id === it.shape)?.name || '네모'}`;
+  if (it.t === 'art') return `그림: ${artName(it.art) || it.art.slice(3)}`;
   return '사진';
 }
 
@@ -742,9 +758,9 @@ export function reshapeItems(items, from, to, { fit = false } = {}) {
     if (fit) {
       next = { ...it, x: (left + s * (it.x / 100)) * 100, y: (top + s * (it.y / 100) / a) * b * 100, w: it.w * s };
       if (it.t === 'text') next.size = it.size * s;
-      if (it.t === 'shape' || it.t === 'image') next.h = it.h * k * s;
+      if (it.t === 'shape' || it.t === 'image' || it.t === 'art') next.h = it.h * k * s;
       if (it.line) next.line = it.line * s;      // 테두리도 같은 비율로 가늘어진다(둥글기는 % 라 그대로)
-    } else if (it.t === 'shape' || it.t === 'image') {
+    } else if (it.t === 'shape' || it.t === 'image' || it.t === 'art') {
       next = { ...it, h: it.h * k };
     }
     if (next === it) return it;

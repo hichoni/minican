@@ -1,0 +1,187 @@
+# 이름|한국어 이름과 찾는 낱말(첫 낱말이 화면에 보이는 이름). 이름은 그림 묶음 원본의 이름이고, 한 번 정하면 바꾸지 않는다(그림에 저장된다).
+heart|하트 생명 사랑 게임
+human|사람 캐릭터
+human-handsup|만세 사람 기쁨
+human-run|달리는 사람 달리기
+human-handsdown|서 있는 사람
+mood-happy|기쁨 웃음
+mood-sad|슬픔
+mood-neutral|무표정 보통
+android|로봇 안드로이드
+gamepad|게임기 게임 패드
+trophy|트로피 우승 게임
+zap|번개 에너지 파워업
+fire|불 불꽃
+coin|동전 점수 게임
+cake|케이크 생일
+gift|선물 보상
+coffee|커피 차
+music|음악 노래
+headphone|헤드폰 음악
+volume-3|소리 크게
+play|재생 시작
+pause|일시 정지
+reload|다시 하기 새로고침
+check|체크 맞음 통과
+close|엑스 틀림 닫기
+plus|더하기 추가
+minus|빼기
+alert|경고 주의
+info-box|정보 안내
+lock|자물쇠 잠금
+lock-open|잠금 해제
+shield|방패 보호
+user|사람 사용자
+users|사람들 친구
+home|집 처음
+mail|편지 메일
+chat|말풍선 대화
+message|메시지 대화
+clock|시계 시간
+calendar|달력 날짜
+book|책 독서
+bookmark|책갈피
+edit|연필 수정
+note|메모 노트
+clipboard|클립보드 기록
+search|돋보기 찾기
+map|지도 길
+flag|깃발 목표 도착
+trending-up|오름 증가
+chart-bar|막대그래프 통계
+sun|해 맑음
+moon|달 밤
+cloud|구름 날씨
+image|그림 사진
+camera|카메라 사진
+video|영상 동영상
+device-laptop|노트북 컴퓨터
+device-phone|휴대폰
+monitor|모니터 화면
+keyboard|키보드
+mouse|마우스
+wifi|와이파이 인터넷
+battery|배터리
+battery-full|배터리 가득 충전
+bulletlist|목록 할 일
+script|대본 문서
+code|코드 코딩
+briefcase|가방 일
+cart|장바구니 상점
+dollar|돈 달러 경제
+downasaur|공룡 게임 오프라인
+eye|눈 보기
+arrow-right|오른쪽 화살표
+arrow-left|왼쪽 화살표
+arrow-up|위쪽 화살표
+arrow-down|아래쪽 화살표
+sliders|조절 설정
+settings-cog|설정 톱니바퀴
+power|전원 켜기 끄기
+bug|벌레 버그 오류
+link|링크 연결
+lightbulb|전구 아이디어
+paint-bucket|페인트 칠하기 색
+drop|물방울
+car|자동차
+truck|트럭 배달
+building|건물
+buildings|도시 건물들
+store|가게 상점
+alien|외계인 우주 게임
+alarm-clock|자명종 알람 시간
+angry|화남 얼굴
+laugh|웃음 얼굴 깔깔
+smile|미소 얼굴
+meh|그저 그래 얼굴
+frown|찡그림 얼굴
+backpack|가방 책가방
+balloon|풍선 축하
+bed|침대 잠
+bell|종 알림
+bell-ring|울리는 종 알림
+bomb|폭탄 게임
+book-open|펼친 책 독서
+box|상자
+brush|붓 그리기
+bullseye|과녁 목표
+bus|버스 교통
+calculator|계산기 수학
+castle|성 게임
+checkbox-on|체크 완료
+checklist|할 일 목록
+chess|체스 전략
+coins|동전들 점수 보상
+compass|나침반 방향
+computer|컴퓨터
+crown|왕관 최고
+dice|주사위 놀이
+diamond-gem|보석 보상
+dog|강아지
+drum|북 악기
+earth|지구 세계
+eraser|지우개
+eye-closed|눈 감기
+factory|공장
+feather|깃털
+fish|물고기
+gear|톱니바퀴 설정
+globe|지구본
+goal|목표 깃발 골
+hand|손 손바닥
+headset|헤드셋
+helicopter|헬리콥터
+hourglass|모래시계 시간
+human-arms-up|만세 기쁨
+joystick|조이스틱 게임
+key|열쇠
+leaf|잎 자연
+lightbulb-on|켜진 전구 아이디어
+library|도서관 책
+megaphone|확성기 안내
+mic|마이크 발표
+moon-stars|달과 별 밤
+notebook|공책
+paperclip|클립
+party-popper|축하 폭죽
+pencil|연필
+pi|파이 수학
+potion|물약 게임 마법
+presentation|발표 화면 칠판
+projector|프로젝터 발표
+robot-face-happy|웃는 로봇
+robot|로봇
+scissors|가위
+ship|배
+shirt|옷 티셔츠
+shopping-bag|쇼핑백
+siren|경고등 사이렌
+skull|해골 게임
+snail|달팽이 느림
+snake|뱀 게임
+snowflake|눈송이 겨울
+sparkles|반짝임
+speed-fast|빠름 속도
+speed-slow|느림 속도
+star|별 점수
+sticky-note|붙임쪽지 메모
+sunglasses|선글라스 멋짐
+sword|칼 게임 모험
+t-rex|공룡 티라노
+target|과녁 목표
+tea|차 음료
+teach|가르치기 선생님 칠판
+tent|텐트 캠핑
+test-tube|시험관 실험
+thermometer|온도계 온도
+thumbs-up|좋아요 최고
+thumbs-down|별로
+tournament|대진표 토너먼트 경기
+tree|나무
+tree-pine|소나무 나무
+university|대학교 학교
+wand|요술봉 마법
+warning-box|경고 주의
+waves|물결 파도
+wind|바람
+zoom-in|확대

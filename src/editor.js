@@ -6,12 +6,13 @@
 import { el, toast } from './dom.js';
 import {
   COLORS, SHAPES, SHAPE_GROUPS, MASKS, OPACITY, TEXT_PRESETS, settings, configure, reshapeItems, backgroundOf, fontList, fontFamilyOf, layoutList,
-  cleanBg, cleanItems, cleanDesign, emptyDesign, cleanItem, cleanImg, moveLayer, newPresetText, newEmoji, newShape, newPhoto, moveItem, scaleItem, widenItem, heightenItem, rotateItem,
+  cleanBg, cleanItems, cleanDesign, emptyDesign, cleanItem, cleanImg, moveLayer, newPresetText, newEmoji, newShape, newArt, newPhoto, moveItem, scaleItem, widenItem, heightenItem, rotateItem,
   designMotion, reorder, duplicateItem, pasteItem, itemLabel, sizeOf, resizeTo, sizeRange, alignItem, coverItem, layoutItems, EDGE, canEdge, canRound, cornerOf, THICK, isLine, thickOf, thicken,
   designVideo, cleanVideo, trimVideo, videoSeconds, videoTime, VIDEO_FITS, MIN_VIDEO, rebaseItems, alignBoxes, distributeBoxes, clampShift, scaleItems, regroup, newGroupId,
 } from './model.js';
 import { ENTERS, COMBOS, TRANSITIONS, STILL, planMotion, playEnter, playDesign, playTransition } from './motion.js';
 import { searchStickers } from './stickers.js';
+import { ART_PACKS, artSvg, artColorable, artReady, loadArt, searchArt } from './art.js';
 import { designView, itemView, placeItem, paintCard, shapeThumb } from './render.js';
 import { sceneView, scenePlayer, keepScene, probeVideo, ACCEPT_VIDEOS } from './scene.js';
 import { icon } from './icons.js';
@@ -38,7 +39,7 @@ const VIDEO_TAB = ['video', 'video', '영상', '이 장의 바탕에 영상을 �
 const VIDEO_LIMITS = { maxSeconds: 60, maxFileSeconds: 300, maxBytes: 200 * 1024 * 1024 };
 const ALIGN_NAME = { l: '왼쪽', c: '가운데', r: '오른쪽' };
 const ALIGN_ICON = { l: 'alignL', c: 'alignC', r: 'alignR' };
-const ITEM_ICON = { text: 'text', emoji: 'shapes', shape: 'shapes', image: 'image' };
+const ITEM_ICON = { text: 'text', emoji: 'shapes', shape: 'shapes', art: 'shapes', image: 'image' };
 const NEXT_ALIGN = { l: 'c', c: 'r', r: 'l' };
 const LONG_PRESS = 550;       // 손가락으로 이만큼(ms) 누르고 있으면 오른쪽 누르기 메뉴가 열린다
 // 복사해 둔 요소들(이 화면 안에서만 쓰는 클립보드. 다른 카드에 붙여 넣을 수 있다). 여럿을 함께 복사하면 여럿이 들어 있다.
@@ -104,6 +105,8 @@ export function createEditor({
   let press = null;           // 길게 누르기를 기다리는 중: { id, x, y, timer }
   let library = [];           // 올린 파일 목록 [{ url, path? }] (올린 차례대로. configure({ maxUploads }) 가 1 이상일 때만 쓴다)
   let armedFile = null;       // 지우려고 한 번 눌러 둔 올린 파일의 주소(한 번 더 확인하고 지운다)
+  let artQuery = '';          // 그림 찾기의 낱말과 묶음(옆 칸을 다시 그려도 그대로 둔다). 묶음 'emoji' 는 기기 이모지
+  let artFrom = '';
   const thumbs = new Map();   // 올린 파일의 주소 → 목록에 보이는 작은 그림(<img>). 칸을 다시 그릴 때 같은 것을 다시 써서 깜빡이지 않게 한다
   let sorting = null;         // 레이어를 끌어 순서를 바꾸는 중: { id, row, list, from, to, y0, … }
   let sorted = false;         // 방금 끌어서 옮겼다(뒤따라오는 누르기는 모른 척한다)
@@ -1865,6 +1868,59 @@ export function createEditor({
     else change(c.hollow ? { line: 0, color: c.lc } : { line: 0 });
   }
 
+  // 그림 고르기: 그림 묶음(art.js)을 낱말과 묶음으로 찾는다. 묶음은 처음 열 때 불러온다. '기기 이모지'는 예전 그래픽(이모지)이다.
+  // onPick 은 { art } 또는 { emoji } 를 받는다.
+  function artPicker(onPick) {
+    const PAGE = 60;
+    let limit = PAGE;
+    const grid = el('div', { class: 'fe-arts' });
+    const note = el('p', { class: 'fe-note' });
+    const more = el('button', { class: 'fe-btn fe-more', type: 'button', text: '더 보기', onClick: () => { limit += PAGE * 2; fill(); } });
+    const search = el('input', {
+      class: 'fe-search', value: artQuery, placeholder: '낱말로 찾기 (예: 공부, 동물, 날씨, 사람)', 'aria-label': '그림 찾기',
+      onInput: () => { artQuery = search.value; limit = PAGE; fill(); },
+    });
+    const packs = [{ id: '', name: '전체' }, ...ART_PACKS, { id: 'emoji', name: '기기 이모지' }];
+    const chips = el('div', { class: 'fe-chips', role: 'group', 'aria-label': '그림 묶음' }, ...packs.map((p) => el('button', {
+      class: 'fe-chip', type: 'button', 'aria-pressed': String(artFrom === p.id), dataset: { pack: p.id },
+      onClick: () => {
+        artFrom = p.id; limit = PAGE;
+        for (const b of chips.children) b.setAttribute('aria-pressed', String(b.dataset.pack === artFrom));
+        fill();
+      },
+    }, p.name)));
+    function fill() {
+      if (artFrom === 'emoji') {
+        const found = searchStickers(search.value);
+        grid.replaceChildren(...(found.length
+          ? found.map((s) => el('button', { class: 'fe-sticker', type: 'button', 'aria-label': s.k.split(' ')[0], title: s.k, onClick: () => onPick({ emoji: s.e }) }, s.e))
+          : [el('p', { class: 'fe-note', text: '찾는 이모지가 없어요. 다른 낱말로 찾아봐요.' })]));
+        more.hidden = true;
+        note.textContent = '기기에 들어 있는 이모지예요. 기기마다 모양이 조금 달라요.';
+        return;
+      }
+      if (!artReady()) {
+        grid.replaceChildren(el('p', { class: 'fe-note', text: '그림을 불러오는 중이에요…' }));
+        more.hidden = true;
+        loadArt().then(() => { if (grid.isConnected) fill(); })
+          .catch(() => { if (grid.isConnected) grid.replaceChildren(el('p', { class: 'fe-note', text: '그림을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 열어 주세요.' })); });
+        return;
+      }
+      const found = searchArt(search.value, artFrom);
+      grid.replaceChildren(...(found.length
+        ? found.slice(0, limit).map((a) => el('button', {
+          class: `fe-art pk-${a.id.slice(0, 2)}`, type: 'button', title: a.name, 'aria-label': a.name, dataset: { art: a.id },
+          html: artSvg(a.id, { fit: 'meet' }), onClick: () => onPick({ art: a.id }),
+        }))
+        : [el('p', { class: 'fe-note', text: '찾는 그림이 없어요. 다른 낱말로 찾아봐요.' })]));
+      more.hidden = found.length <= limit;
+      const pack = ART_PACKS.find((p) => p.id === artFrom);
+      note.textContent = pack ? `${pack.credit} · 누구나 자유롭게 쓸 수 있는 그림이에요.` : '모두 누구나 자유롭게 쓸 수 있는 그림이에요(MIT · CC0). 선 아이콘과 픽셀은 색을 바꿀 수 있어요.';
+    }
+    fill();
+    return el('div', { class: 'fe-picker fe-artpicker' }, search, chips, grid, more, note);
+  }
+
   // 도형·꾸밈 요소 고르기: 분류별로 나눠 보여 준다. 작은 그림은 놓일 때와 같은 그림·같은 색이다(render.js 의 shapeThumb).
   function shapePicker(onPick) {
     return SHAPE_GROUPS.flatMap((g) => [
@@ -1998,6 +2054,13 @@ export function createEditor({
       if (isLine(it)) own.push(pick('thick', '굵기', 'thick', { title: '선의 굵기' }));
     } else if (it.t === 'emoji') {
       own.push(pick('swap', '바꾸기', 'swap', { title: '다른 그래픽으로 바꾸기' }));
+    } else if (it.t === 'art') {
+      // 그림 묶음의 그림: 한 가지 색으로 그린 것(선 아이콘 · 픽셀)만 색을 바꾼다. 컬러 그림과 사람은 원래 색 그대로다.
+      if (it.color) {
+        const ink = el('span', { class: 'fe-ink dot' });
+        ink.style.background = it.color;
+        own.push(tb([icon('palette'), el('span', { class: 'fe-lbl', text: '색' }), ink], () => toggle('color'), { title: '그림 색', name: '그림 색', on: pop === 'color', cls: 'has-pop color' }));
+      }
     } else {
       own.push(
         tb(lab('eraser', '배경 제거'), () => (pop === 'cut' ? toggle('cut') : openCut()), { on: pop === 'cut', title: '사진의 배경을 투명하게 지워요', name: '배경 제거', cls: 'has-pop cut' }),
@@ -2053,8 +2116,8 @@ export function createEditor({
     if (pop === 'color' && canEdge(it)) {
       body = [el('div', { class: 'fe-poshead', text: '채우기 색' }),
         swatches(it.hollow ? '' : it.color, fillWith, { none: true, noneName: '채우기 없음 (테두리만)', label: '채우기 색' })];
-    } else if (pop === 'color' && it.t !== 'image' && it.t !== 'emoji') {
-      const label = it.t === 'text' ? '글자 색' : '도형 색';
+    } else if (pop === 'color' && it.t !== 'image' && it.t !== 'emoji' && (it.t !== 'art' || it.color)) {
+      const label = it.t === 'text' ? '글자 색' : it.t === 'art' ? '그림 색' : '도형 색';
       body = [el('div', { class: 'fe-poshead', text: label }), swatches(it.color, (hex) => change({ color: hex }), { label })];
     } else if (pop === 'edge' && canEdge(it)) {
       body = [el('div', { class: 'fe-poshead', text: '테두리 색' }),
@@ -2467,8 +2530,9 @@ export function createEditor({
     }
     if (tab === 'element') {
       return [
+        el('div', { class: 'fe-head', text: '그림' }),
+        artPicker((p) => add(p.emoji ? newEmoji(p.emoji) : newArt(p.art, artColorable(p.art) ? { color: backgroundOf(card.bg).ink } : {}))),
         ...shapePicker((shape) => add(newShape(shape, visibleColor(shape)))),
-        el('div', { class: 'fe-head', text: '그래픽' }), stickerPicker((ch) => add(newEmoji(ch))),
       ];
     }
     if (tab === 'upload' && libraryOn()) return uploadBody();

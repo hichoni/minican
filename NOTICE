@@ -22,3 +22,13 @@ Licensed under the MIT License (see LICENSE).
    - jua.ttf — Copyright 2018 The BM JUA Project Authors
    - single-day.ttf — Copyright 2015 DXKorea Inc
    - 모두 SIL Open Font License 1.1 — 전문: demo/fonts/OFL.txt
+
+4. 그림 묶음 — src/art/ (요소 칸의 "그림". 고른 것만 넣었고 손으로 고치지 않았습니다. 만드는 법: tools/art/build.mjs)
+   - Fluent Emoji (컬러 그림) — Copyright (c) Microsoft Corporation — MIT License
+     https://github.com/microsoft/fluentui-emoji — 전문: src/art/LICENSE-fluent-emoji.txt (npm @iconify-json/fluent-emoji-flat 1.2.6 에서)
+   - Tabler Icons (선 아이콘) — Copyright (c) Paweł Kuna — MIT License
+     https://github.com/tabler/tabler-icons — 전문: src/art/LICENSE-tabler-icons.txt (npm @iconify-json/tabler 1.2.42 에서)
+   - Pixelarticons (픽셀) — Copyright (c) 2019 Gerrit Halfmann — MIT License
+     https://github.com/halfmage/pixelarticons — 전문: src/art/LICENSE-pixelarticons.txt (npm @iconify-json/pixelarticons 1.2.10 에서)
+   - Open Peeps (사람) — Pablo Stanley — CC0 1.0 (퍼블릭 도메인)
+     https://www.openpeeps.com — 안내: src/art/LICENSE-open-peeps.txt (npm @opeepsfun/open-peeps 1.0.6 의 부품으로 얼굴·머리·몸을 짜 맞춤)

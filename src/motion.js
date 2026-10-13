@@ -136,7 +136,7 @@ export function enterKeyframes(item, id, { scale = 1, mirror = false } = {}) {
 export function roleOf(item) {
   if (!item) return 'pic';
   if (item.t === 'text') return 'text';
-  if ((item.t === 'shape' || item.t === 'image') && (item.w / 100) * (item.h / 100) >= 0.4) return BACK;
+  if ((item.t === 'shape' || item.t === 'image' || item.t === 'art') && (item.w / 100) * (item.h / 100) >= 0.4) return BACK;
   return 'pic';
 }
 

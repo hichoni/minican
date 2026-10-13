@@ -98,6 +98,8 @@
 .fi-shape.hollow { background: transparent; }
 .fi-shape.hollow svg * { fill: none; }
 /* 사진은 카드보다 크게 키울 수 있다(배경으로 깔기). 쓰는 화면의 img { max-width: 100% } 같은 스타일에 눌리지 않게 한다 */
+.fi-art svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.fi-art.broken { background: #e2e5e9; border-radius: 8px; }
 .fi-image { object-fit: cover; max-width: none; max-height: none; }
 .fi-image.mk-round { border-radius: 6cqw; }
 .fi-image.mk-circle { border-radius: 50%; }
@@ -542,6 +544,16 @@
 .fe-stickers { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; max-height: 230px; overflow: auto; }
 .fe-sticker { height: 52px; padding: 0; border: 2px solid transparent; border-radius: 10px; background: #fff; font-size: 1.7rem; cursor: pointer; }
 .fe-sticker:hover { border-color: var(--fe-primary); }
+.fe-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fe-chips .fe-chip { min-height: 32px; padding: 4px 11px; font-size: .85rem; }
+.fe-chips .fe-chip[aria-pressed="true"] { background: var(--fe-primary); color: #fff; }
+.fe-arts { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; max-height: 340px; overflow: auto; }
+.fe-art { aspect-ratio: 1; padding: 8px; border: 2px solid transparent; border-radius: 10px; background: #fff; color: #1d2433; cursor: pointer; }
+.fe-art.pk-pp { padding: 2px; }
+.fe-art:hover { border-color: var(--fe-primary); }
+.fe-art:focus-visible { outline: 3px solid var(--fe-primary); outline-offset: 2px; }
+.fe-art svg { display: block; width: 100%; height: 100%; pointer-events: none; }
+.fe-artpicker .fe-more { justify-self: center; }
 .fe-bgs { display: flex; flex-wrap: wrap; gap: 8px; }
 .fe-bgsw { width: 48px; height: 48px; padding: 0; border-radius: 12px; border: 2px solid rgba(29, 36, 51, .18); font-size: 1rem; font-weight: 900; cursor: pointer; }
 .fe-bgsw.on { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--fe-primary); }

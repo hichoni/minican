@@ -1,0 +1,220 @@
+# 이름|한국어 이름과 찾는 낱말(첫 낱말이 화면에 보이는 이름). 이름은 그림 묶음 원본의 이름이고, 한 번 정하면 바꾸지 않는다(그림에 저장된다).
+school|학교 배움 졸업
+book|책 독서 공부
+books|책들 도서관 독서
+notebook|공책 노트 필기
+notes|메모 노트 기록
+pencil|연필 쓰기 수정
+ballpen|볼펜 펜 쓰기
+eraser|지우개 지우기
+ruler|자 길이 측정
+ruler-2|자 측정 수학
+calculator|계산기 수학 계산
+math|수학 공식
+math-function|함수 수학 그래프
+abacus|주판 셈
+geometry|도형 기하 수학
+triangle|세모 삼각형 도형
+square|네모 사각형 도형
+circle|동그라미 원 도형
+hexagon|육각형 도형
+atom|원자 과학
+flask|플라스크 실험 과학
+microscope|현미경 관찰 과학
+dna|유전자 생명 과학
+magnet|자석 과학
+telescope|망원경 우주 관찰
+plant|식물 화분 기르기
+plant-2|식물 자람 새싹
+seedling|새싹 성장
+leaf|잎 자연 환경
+tree|나무 자연
+trees|숲 나무들
+flower|꽃 봄
+sun|해 맑음 날씨
+moon|달 밤
+cloud|구름 흐림 날씨
+cloud-rain|비 날씨
+snowflake|눈 겨울 날씨
+umbrella|우산 비
+bolt|번개 전기 에너지
+flame|불 불꽃 열정
+droplet|물방울 물
+wind|바람 날씨
+temperature|온도 기온 체온
+mountain|산 자연
+world|지구 세계 인터넷
+globe|지구본 세계 지리
+map|지도 길 여행
+map-pin|위치 장소 핀
+compass|나침반 방향
+home|집 처음 홈
+building|건물 빌딩
+building-hospital|병원 건강
+building-store|가게 상점
+bus|버스 교통
+car|자동차 교통
+bike|자전거 운동
+train|기차 교통
+plane|비행기 여행
+rocket|로켓 우주 도전
+ship|배 바다
+walk|걷기 산책
+run|달리기 운동
+swimming|수영 운동
+yoga|요가 명상 운동
+user|사람 학생 개인
+users|사람들 친구 모둠
+users-group|모둠 그룹 반 친구들
+friends|친구 우정 함께
+heart|하트 사랑 좋아요
+heart-handshake|도움 배려 협력
+star|별 칭찬 즐겨찾기
+thumb-up|좋아요 최고
+thumb-down|별로 싫어요
+mood-happy|기쁨 웃음 행복
+mood-smile|미소 웃음
+mood-sad|슬픔 속상
+mood-cry|울음 슬픔
+mood-angry|화남 분노
+mood-surprised|놀람 깜짝
+mood-confuzed|헷갈림 혼란
+mood-nervous|긴장 불안
+mood-sick|아픔 몸살
+mood-wink|윙크 장난
+bulb|전구 아이디어 생각
+brain|뇌 생각 기억
+puzzle|퍼즐 문제 해결
+target|과녁 목표 명중
+trophy|트로피 우승 상
+medal|메달 상
+award|상장 상 배지
+flag|깃발 목표
+crown|왕관 최고
+diamond|보석 다이아몬드
+clock|시계 시간
+alarm|알람 자명종
+calendar|달력 일정
+hourglass|모래시계 기다림
+check|체크 맞음 확인
+circle-check|체크 완료 확인
+x|엑스 틀림 닫기
+circle-x|엑스 틀림 취소
+question-mark|물음표 질문 궁금
+help-circle|도움 질문 물음표
+exclamation-mark|느낌표 중요
+alert-triangle|경고 주의 위험
+info-circle|정보 안내
+ban|금지 안 돼요
+message|메시지 대화 말풍선
+message-circle|말풍선 대화 의견
+messages|대화 토론 채팅
+speakerphone|확성기 안내 발표
+bell|종 알림
+music|음악 노래
+microphone|마이크 노래 발표
+headphones|헤드폰 듣기
+volume|소리 볼륨 스피커
+camera|카메라 사진
+photo|사진 그림
+video|영상 동영상 촬영
+movie|영화 영상
+device-laptop|노트북 컴퓨터
+device-desktop|컴퓨터 모니터
+device-mobile|휴대폰 스마트폰
+device-tablet|태블릿 패드
+keyboard|키보드 입력
+mouse|마우스 클릭
+printer|프린터 인쇄
+wifi|와이파이 인터넷 무선
+lock|자물쇠 잠금 보안
+lock-open|잠금 해제 열기
+key|열쇠 비밀번호
+shield|방패 보호 보안
+shield-check|안전 보호 확인
+password|비밀번호 보안
+fingerprint|지문 보안 개인
+id|신분증 개인 정보
+mail|편지 메일
+send|보내기 전송
+link|링크 연결
+search|돋보기 찾기 검색
+zoom-in|확대 크게 보기
+settings|설정 톱니바퀴
+tool|도구 고치기
+tools|도구들 만들기
+hammer|망치 만들기
+scissors|가위 오리기
+palette|팔레트 미술 색
+brush|붓 그리기 미술
+paint|페인트 칠하기
+clipboard|클립보드 기록
+clipboard-check|점검 확인 체크리스트
+list-check|할 일 목록 체크
+list-numbers|번호 목록 순서
+file-text|문서 학습지
+folder|폴더 자료
+chart-bar|막대그래프 통계
+chart-pie|원그래프 비율
+chart-line|꺾은선그래프 변화
+trending-up|증가 오름 성장
+trending-down|감소 내림
+arrow-right|오른쪽 화살표 다음
+arrow-left|왼쪽 화살표 이전
+arrow-up|위쪽 화살표
+arrow-down|아래쪽 화살표
+arrow-back-up|되돌리기 실행 취소
+arrows-shuffle|섞기 무작위
+refresh|새로고침 다시
+recycle|재활용 환경
+trash|쓰레기통 지우기
+apple|사과 과일
+carrot|당근 채소
+pizza|피자 음식
+cup|컵 음료
+coffee|커피 차
+ice-cream|아이스크림 간식
+cake|케이크 생일
+gift|선물 생일
+balloon|풍선 축하
+confetti|축하 파티
+ball-football|축구공 축구
+ball-basketball|농구공 농구
+ball-baseball|야구공 야구
+ball-volleyball|배구공 배구
+ball-tennis|테니스공 테니스
+dice|주사위 확률 놀이
+chess|체스 전략
+device-gamepad-2|게임기 게임
+robot|로봇 인공지능
+code|코드 코딩 프로그래밍
+terminal|터미널 코딩 명령
+binary|이진수 코딩 디지털
+cpu|칩 컴퓨터 부품
+cloud-computing|클라우드 저장 인터넷
+database|데이터 저장소
+sparkles|반짝임 새로움 AI
+wand|요술봉 마법
+eye|눈 보기 관찰
+ear|귀 듣기
+hand-stop|멈춰 손바닥
+hand-finger|가리키기 손가락
+hand-click|누르기 클릭
+hand-love-you|사랑해 손짓
+pray|기도 부탁 감사
+writing|글쓰기 작성
+sign-right|이정표 안내
+traffic-lights|신호등 교통 안전
+first-aid-kit|구급상자 응급 안전
+pill|약 건강
+stethoscope|청진기 병원
+dog|강아지 반려동물
+cat|고양이 반려동물
+fish|물고기
+butterfly|나비 곤충
+bug|벌레 버그
+paw|발자국 동물
+feather|깃털 가벼움
+bulb-off|전구 끔 절약
+battery|배터리 충전
+plug|플러그 전기
