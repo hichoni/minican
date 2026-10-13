@@ -87,8 +87,8 @@ test('내려받기: 긴 쪽이 1080 · 1920 · 3840 이 되고, 파일 이름은
   assert.deepEqual(exportSize('large', 9 / 16), { id: 'large', width: 2160, height: 3840 });
   assert.deepEqual(exportSize('nope', 1), { id: 'medium', width: 1920, height: 1920 });
   const when = new Date(2026, 9, 13, 9, 5);
-  assert.equal(fileName(when), 'minican-20261013-0905');
-  assert.equal(fileName(when, 3), 'minican-20261013-0905-03');
+  assert.equal(fileName(when), 'onbatang-20261013-0905');
+  assert.equal(fileName(when, 3), 'onbatang-20261013-0905-03');
   assert.match(EXPORT_KEY, /^minican\./);
   assert.match(RATIO_KEY, /^minican\./);
 });
@@ -151,7 +151,7 @@ test('앱은 이 기기 밖으로 아무것도 보내지 않고, 로그인·서�
   assert.doesNotMatch(readFileSync(APP + 'app.css', 'utf8'), /cv-team|cv-roster|cv-me\b|cv-adopt/);
 });
 
-test('들여 쓰는 곳의 표시: 이름과 같은 곳·https·그림 data 로고만 받고, 꾸미는 화면 위 막대 맨 앞에 놓는다', async () => {
+test('들여 쓰는 곳의 표시: 안전한 로고를 받고 온바탕 로고와 함께 편집기 막대에 놓는다', async () => {
   const { cleanBrand } = await import('../app/designs.js');
   assert.deepEqual(cleanBrand({ name: ' G-AI LAB ', logo: 'assets/brand-logo-owl.png' }), { name: 'G-AI LAB', logo: 'assets/brand-logo-owl.png' });
   for (const logo of ['./logo.png', '../logo.svg', '/logo.png', 'https://example.org/logo.png', 'data:image/png;base64,AAAA']) assert.ok(cleanBrand({ name: '학교', logo }), logo);
@@ -159,7 +159,7 @@ test('들여 쓰는 곳의 표시: 이름과 같은 곳·https·그림 data 로�
   assert.equal(cleanBrand({ name: '', logo: 'a/b.png' }), null);assert.equal(cleanBrand({ name: '가'.repeat(41), logo: 'a/b.png' }), null);assert.equal(cleanBrand(null), null);
   const app = readFileSync(APP + 'app.js', 'utf8');
   assert.match(app, /brand = cleanBrand\(mark\);/);
-  assert.match(app, /const bar = el\('header', \{ class: 'cv-bar' \},\n    \.\.\.\(mark \? \[mark,/);
+  assert.match(app, /const bar = el\('header', \{ class: 'cv-bar' \},\s+el\('span', \{ class: 'onba-editor-logo' \}, onbatangLogo\(\)\),\s+\.\.\.\(mark \? \[mark,/);
   // GitHub Pages 의 첫 주소는 앱으로 보낸다.
   const index = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(index, /http-equiv="refresh" content="0; url=app\/"/);

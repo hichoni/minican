@@ -4,12 +4,12 @@
 // 화면의 짜임: 첫 화면(소개·새로 만들기 + 템플릿 + 내 그림)과 꾸미는 화면(위 막대 · 왼쪽 도구 줄과 옆 칸 · 가운데 그림 · 아래 슬라이드 띠).
 //             꾸미는 화면은 넓은 화면에서 창을 꽉 채우고(스크롤 없음), 좁은 화면에서는 위에서 아래로 쌓인다(app.css).
 import { el, toast, openModal, closeModal } from './ui.js';
+import { onbatangLogo } from './brand.js';
 import {
   createEditor, designView, designToBlob, configure, settings, reshapeItems, layoutList, layoutItems, icon, cleanDesign, hasMotion, playDesign, playTransition,
   COMBOS, TRANSITIONS, designsToVideo, canMakeVideo, canFilmScenes, filmPlan, MAX_FILM_SECONDS, videoSize, STAYS, DEFAULT_STAY, scenePlayer, dropScene, sceneUrl,
   fontFamilyOf, fontList,
 } from '../src/index.js';
-import { TITLE_FONT } from './templates.js';
 import { HERO_ART, HERO_VIEW } from './hero-art.js';
 // 브라우저가 녹화한 WebM 에는 길이가 적혀 있지 않다. 영상 내려받기에 "길이 적어 넣기"를 쓴다.
 import { fixWebmBlob } from './webm.js';
@@ -266,7 +266,7 @@ function heroShowcase() {
   const cursor = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v16l4.5-4.2 2.9 6.4 2.8-1.3-2.9-6.2H18z" fill="#141933" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>';
   const win = el('div', { class: 'cv-demo-win' },
     el('div', { class: 'cv-demo-top' },
-      el('b', { class: 'cv-demo-brand' }, ic('shapes'), '미니캔'),
+      el('b', { class: 'cv-demo-brand' }, onbatangLogo()),
       el('span', { class: 'cv-demo-undo' }, ic('undo'), ic('redo')),
       el('span', { class: 'cv-demo-down' }, ic('download'), '내려받기')),
     el('div', { class: 'cv-demo-body' },
@@ -314,21 +314,19 @@ function render() {
   const newBtn = (cls) => el('button', { class: `btn ${cls}`, type: 'button', disabled: loading || full, onClick: () => startNew() }, ic('plus'), el('span', { text: '새 그림 만들기' }));
 
   // ① 대문: 왼쪽은 이름 · 한 줄 소개 · 만들 수 있는 것 · 시작 단추, 오른쪽은 꾸미는 화면을 본뜬 그림(실제 템플릿과 그림 묶음으로 그린다).
-  const display = fontFamilyOf(TITLE_FONT);
-  const title = el('h1', { id: 'canva-title', class: 'cv-home-title' }, '미니캔');
-  if (display) title.style.fontFamily = `"${display}", var(--fe-font, sans-serif)`;
+  const title = el('h1', { id: 'canva-title', class: 'cv-home-title' }, onbatangLogo());
   const start = el('button', { class: 'btn cv-cta cv-new-btn', type: 'button', disabled: loading || full, onClick: () => startNew() },
-    el('span', { text: '지금, 나만의 디자인을 시작하세요' }), ic('right'));
+    el('span', { text: '내 생각 펼치기' }), ic('right'));
   const hero = el('section', { class: 'cv-hero', 'aria-labelledby': 'canva-title' }, el('div', { class: 'cv-hero-in' },
     el('div', { class: 'cv-hero-text' },
-      el('div', { class: 'cv-home-heading' }, el('span', { class: 'cv-home-icon', 'aria-hidden': 'true' }, ic('shapes')), title),
-      el('p', { class: 'cv-hero-kicker' }, el('span', { class: 'cv-kick-color', text: '글·도형·사진으로' }), ' 생각 펼치기'),
-      el('p', { class: 'cv-hero-lead' }, '카드·포스터·발표 자료를 쉽고 예쁘게 만드는', el('br'), '디자인 공간, 미니캔'),
+      el('div', { class: 'cv-home-heading' }, title),
+      el('p', { class: 'cv-hero-kicker' }, '생각을 펼치는', el('br'), el('span', { class: 'cv-kick-color', text: '따뜻한 디자인 공간.' })),
+      el('p', { class: 'cv-hero-lead' }, '글·도형·사진으로 나답게 만들어요.', el('br'), '작은 카드부터 포스터, 발표 자료까지.'),
       el('ul', { class: 'cv-feats', 'aria-label': '만들 수 있는 것' }, ...FEATS.map(([pic, text, tone]) => el('li', { class: `cv-feat ${tone}` },
         el('span', { class: 'cv-feat-icon', 'aria-hidden': 'true' }, ic(pic)), el('span', { text })))),
       el('div', { class: 'cv-hero-go' }, start,
         full ? el('p', { class: 'cv-hero-full', text: `그림은 ${MAX_DESIGNS}장까지 저장돼요. 안 쓰는 그림을 지워 주세요.` }) : null),
-      el('p', { class: 'cv-hero-tag', text: `아이디어가 멋진 결과물이 되는 곳, 미니캔 · ${sync ? '내 계정에 자동 저장' : '이 기기에 자동 저장'}` })),
+      el('p', { class: 'cv-hero-tag', text: `작은 생각도 멋진 작품이 되도록 · ${sync ? '내 계정에 자동 저장' : '이 기기에 자동 저장'}` })),
     heroShowcase()));
 
   // 템플릿은 소개 카드 아래의 같은 본문 폭에서 골라 바로 시작한다.
@@ -516,6 +514,7 @@ function openDesign(record, isNew) {
   // 위 막대: 나가기 · 이름 · 저장 상태 | 모양 · 발표 · 내려받기
   const mark = brand ? el('span', { class: 'cv-brand', title: brand.name }, el('img', { src: brand.logo, alt: brand.name })) : null;
   const bar = el('header', { class: 'cv-bar' },
+    el('span', { class: 'onba-editor-logo' }, onbatangLogo()),
     ...(mark ? [mark, el('span', { class: 'cv-bar-sep cv-brand-sep', 'aria-hidden': 'true' })] : []),
     el('button', { class: 'btn btn-ghost cv-back', type: 'button', title: '저장하고 내 그림으로 돌아가요', onClick: (e) => closeDesign(O, e.currentTarget) }, ...face('back', '내 그림')),
     el('span', { class: 'cv-bar-sep', 'aria-hidden': 'true' }),
