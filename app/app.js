@@ -1,6 +1,6 @@
 // 미니캔 앱: 내 그림들 → 새 그림 → 꾸미기(그림의 모양은 꾸미는 화면에서 언제든 바꾼다) → 그림·영상 파일로 내려받기.
 // 편집기는 모듈(src/)의 것을 그대로 쓴다. 그림은 이 기기(브라우저의 IndexedDB)에만 저장되고, 서버로는 아무것도 보내지 않는다.
-// 들여 쓰는 곳은 startMinican({ fonts, titleFont, storage, onView, brand })로 시작한다(index.html 이 그 예다).
+// 들여 쓰는 곳은 startMinican({ fonts, titleFont, storage, onView, brand, sync })로 시작한다(index.html 이 그 예다).
 // 화면의 짜임: 첫 화면(소개·새로 만들기 + 템플릿 + 내 그림)과 꾸미는 화면(위 막대 · 왼쪽 도구 줄과 옆 칸 · 가운데 그림 · 아래 슬라이드 띠).
 //             꾸미는 화면은 넓은 화면에서 창을 꽉 채우고(스크롤 없음), 좁은 화면에서는 위에서 아래로 쌓인다(app.css).
 import { el, toast, openModal, closeModal } from './ui.js';
@@ -21,16 +21,20 @@ import { saveVideo, listVideos, removeVideos } from './videos.js';
 import { zipStore } from './zip.js';
 import { listDesigns, getDesign, putDesign, removeDesign, setStorageName } from './store.js';
 import { setupCanva, useFonts, photoToData, BASIC_GROUP } from './setup.js';
+import { mergeAccount, createPusher } from './sync.js';
 
 let app = null;
 let onView = () => {};
 let brand = null;                // 들여 쓰는 곳의 표시 { name, logo } (없으면 표시하지 않는다)
+let sync = null;                 // 들여 쓰는 곳의 계정 저장(sync.js). 없으면 이 기기에만 저장한다
+let pusher = null;
 const SAVE_DELAY = 500;       // 마지막으로 고친 뒤 이만큼 지나면 이 기기에 저장한다(ms)
 const S = {
   phase: 'boot',              // 'boot'(그림을 읽는 중) · 'home'
   list: null,                 // 내 그림들(null 이면 불러오는 중)
   open: null,
   error: '',                  // 이 창에서는 기기에 저장할 수 없다
+  account: '',                // 계정과 맞추기: '' · 'syncing' · 'ok' · 'bad'
 };
 let homeRail = null;
 /** 지금 무슨 화면인지 적어 둔다(app.css 가 이것을 보고 짜임을 바꾼다): 'home' · 'edit'. 들여 쓰는 곳에도 알린다(onView). */
@@ -103,6 +107,13 @@ const face = (icon, text) => [ic(icon), el('span', { class: 'cv-lbl', text })];
 const labelOf = (btn) => (btn.querySelector('.cv-lbl') || btn).textContent;
 const relabel = (btn, text) => { (btn.querySelector('.cv-lbl') || btn).textContent = text; };
 
+/** 첫 화면의 저장 안내(계정이 있으면 계정 상태). */
+function accountNote() {
+  if (!sync) return [el('b', { text: '이 기기에 저장돼요.' }), ' 완성한 그림은 내려받아 두세요.'];
+  if (S.account === 'bad') return [el('b', { text: '계정에 연결하지 못했어요.' }), ' 이 기기에는 저장돼요. 새로 고침하면 다시 맞춰요.'];
+  if (S.account === 'syncing') return [el('b', { text: '계정과 맞추는 중이에요…' })];
+  return [el('b', { text: '내 계정에 저장돼요.' }), ' 다른 기기에서도 열려요. 바탕에 깐 영상은 이 기기에만 있어요.'];
+}
 // ---------- 시작 ----------
 /** 내 그림들을 이 기기에서 다시 모은다. */
 async function refresh() {
@@ -118,6 +129,28 @@ async function refresh() {
   }
   S.phase = 'home';
   render();
+  syncAccount();
+}
+/** 계정이 있으면 이 기기의 그림과 계정의 그림을 맞춘다(sync.js). 첫 화면에 있을 때만 목록을 다시 그린다. */
+async function syncAccount() {
+  if (!sync || S.error) return;
+  S.account = 'syncing';
+  if (!S.open) render();
+  try {
+    await mergeAccount(sync, { list: listDesigns, put: putDesign, remove: removeDesign });
+    S.account = 'ok';
+    if (!S.open) S.list = await listDesigns();
+  } catch (ex) {
+    console.warn(ex);
+    S.account = 'bad';
+  }
+  if (!S.open) render();
+}
+/** 계정에 다 올렸을 때 꾸미는 화면의 저장 상태를 알린다. */
+function pushed(id, ok) {
+  const O = S.open;
+  if (!O || O.record.id !== id || O.dirty) return;
+  setStatus(O, ok ? '계정에 저장했어요' : '계정에 올리지 못했어요 · 이 기기에는 저장됐어요', ok ? 'ok' : '');
 }
 /** 목록의 그 그림을 새 기록으로 바꿔 끼운다(없으면 맨 앞에 더한다). */
 function upsert(record) {
@@ -275,16 +308,16 @@ function render() {
     el('div', { class: 'cv-sec-head' },
       el('h2', { text: loading || !list.length ? '내 그림' : `내 그림 ${list.length}장` }),
       loading ? null : el('div', { class: 'cv-account solo' },
-        el('span', { class: 'cv-account-icon', 'aria-hidden': 'true' }, ic('screen')),
-        el('span', { class: 'cv-account-text' }, el('b', { text: '이 기기에 저장돼요.' }), ' 완성한 그림은 내려받아 두세요.'))));
+        el('span', { class: 'cv-account-icon', 'aria-hidden': 'true' }, ic(sync ? 'cloud' : 'screen')),
+        el('span', { class: 'cv-account-text' }, ...accountNote()))));
   if (loading) {
     mine.append(el('div', { class: 'cv-state', role: 'status' },
       el('span', { class: 'cv-spin', 'aria-hidden': 'true' }),
-      el('b', { text: '이 기기에 저장된 그림을 불러오는 중이에요…' })));
+      el('b', { text: sync ? '저장된 그림을 불러오는 중이에요…' : '이 기기에 저장된 그림을 불러오는 중이에요…' })));
   } else if (!list.length) {
     mine.append(el('div', { class: 'cv-state cv-empty', role: 'status' },
       el('span', { class: 'cv-state-icon', 'aria-hidden': 'true' }, el('i'), el('i'), el('i')),
-      el('b', { text: '이 기기에 저장된 그림이 없어요' }),
+      el('b', { text: sync ? (S.account === 'syncing' ? '계정의 그림을 맞추는 중이에요…' : '저장된 그림이 없어요') : '이 기기에 저장된 그림이 없어요' }),
       el('span', { class: 'muted', text: '새 그림을 만들면 여기에 저절로 저장돼요. 위의 템플릿으로 시작해도 좋아요.' }),
       newBtn('btn-primary cv-empty-btn')));
   } else {
@@ -326,6 +359,8 @@ function itemCard(record) {
       busy(true);
       try {
         await removeDesign(record.id);
+        if (pusher) pusher.cancel(record.id);
+        if (sync) sync.drop(record.id).catch((ex) => { console.warn(ex); toast('계정에서는 지우지 못했어요. 새로 고침하면 다시 나타날 수 있어요.', 5000); });
       } catch (ex) {
         console.error(ex);
         toast('지우지 못했어요. 새로 고침하고 다시 해 봐요.', 4000);
@@ -374,7 +409,7 @@ function openDesign(record, isNew) {
   };
   delete O.record.slides;                // 슬라이드는 O.slides 가 맡는다(저장할 때 다시 넣는다)
   S.open = O;
-  const first = isNew ? '꾸미기 시작하면 저절로 저장돼요' : '이 기기에 저장돼 있어요';
+  const first = isNew ? '꾸미기 시작하면 저절로 저장돼요' : sync ? '저장돼 있어요' : '이 기기에 저장돼 있어요';
   O.status = el('span', { class: 'cv-status', role: 'status', text: first, title: first });
   // 저장하지 못했을 때는 위 막대 아래에 띠로 한 번 더 알린다(위 막대의 글은 자리가 좁아 잘릴 수 있다).
   O.alert = el('p', { class: 'cv-alert', 'aria-hidden': 'true', hidden: true });
@@ -883,7 +918,8 @@ async function save(O) {
   O.localOk = ok;                              // 이 기기에 적혔는지(영상 파일을 정리해도 되는지 볼 때 쓴다)
   if (ok) {
     upsert(kept);
-    if (!O.dirty) setStatus(O, '이 기기에 저장했어요', 'ok');
+    if (pusher) pusher.queue(kept);
+    if (!O.dirty) setStatus(O, pusher ? '이 기기에 저장했어요 · 계정에 올리는 중…' : '이 기기에 저장했어요', 'ok');
     return true;
   }
   O.dirty = true;
@@ -901,6 +937,7 @@ async function leaveEditor(O) {
   // 그 그림은 지우려던 영상을 아직 쓰고 있을 수 있다.
   if (ok && !O.dirty && O.localOk !== false) await tidyVideos(O.record.id, currentSlides(O));
   O.closed = true;
+  if (pusher) pusher.flush(O.record.id);         // 기다리던 계정 올리기를 바로 한다(끝나기를 기다리지는 않는다)
   clearTimeout(O.timer);
   clearTimeout(O.thumbTimer);
   closeModal();
@@ -1225,6 +1262,7 @@ async function makeVideo(O, { vsize, stay }) {
 function flush() {
   const O = S.open;
   if (O?.dirty) save(O);
+  if (O && pusher) pusher.flush(O.record.id);
 }
 
 /**
@@ -1234,13 +1272,18 @@ function flush() {
  * - storage: 이 기기의 저장소 이름(같은 주소에서 다른 앱과 섞이지 않게. 기본 'minican')
  * - onView(view): 화면이 바뀔 때('home' · 'edit') 알려 준다(들여 쓰는 곳이 둘레를 맞출 때 쓴다)
  * - brand: 들여 쓰는 곳의 표시 { name, logo }. 꾸미는 화면 위 막대 맨 앞에 작게 보인다(없으면 표시하지 않는다)
+ * - sync: 계정 저장 { pull, push, drop }(sync.js). 주면 이 기기에 저장한 뒤 계정에도 올리고, 시작할 때 계정과 맞춘다
  */
-export function startMinican({ root = document.getElementById('app'), fonts = [], titleFont = '', storage = 'minican', onView: view = null, brand: mark = null } = {}) {
+export function startMinican({ root = document.getElementById('app'), fonts = [], titleFont = '', storage = 'minican', onView: view = null, brand: mark = null, sync: account = null } = {}) {
   if (app) throw new Error('minican already started');
   if (!root) throw new Error('minican root');
   app = root;
   if (typeof view === 'function') onView = view;
   brand = cleanBrand(mark);
+  if (account && ['pull', 'push', 'drop'].every((k) => typeof account[k] === 'function')) {
+    sync = account;
+    pusher = createPusher(sync, { onDone: pushed });
+  }
   setStorageName(storage);
   useFonts(fonts, titleFont);
   setupCanva();
