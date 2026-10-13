@@ -98,3 +98,11 @@ test('찾기 결과는 묶음의 차례(컬러 그림 → 선 아이콘 → 픽�
   const order = [...new Set(searchArt('').map((a) => a.id.slice(0, 2)))];
   assert.deepEqual(order, ['fe', 'tb', 'px', 'pp']);
 });
+
+test('대문 미리보기의 그림 세 개는 Fluent 묶음의 그림과 같다(묶음 전체를 첫 화면에서 불러오지 않는다)', async () => {
+  const { HERO_ART, HERO_VIEW } = await import('../app/hero-art.js');
+  const fluent = (await import('../src/art/fluent.js')).default;
+  assert.equal(HERO_VIEW, fluent.view);
+  for (const [name, body] of Object.entries(HERO_ART)) assert.equal(body, fluent.items.find((i) => i[0] === name)?.[2], name);
+  assert.doesNotMatch(readFileSync(new URL('../app/app.js', import.meta.url), 'utf8'), /\bloadArt\b/);
+});

@@ -7,9 +7,10 @@ import { el, toast, openModal, closeModal } from './ui.js';
 import {
   createEditor, designView, designToBlob, configure, settings, reshapeItems, layoutList, layoutItems, icon, cleanDesign, hasMotion, playDesign, playTransition,
   COMBOS, TRANSITIONS, designsToVideo, canMakeVideo, canFilmScenes, filmPlan, MAX_FILM_SECONDS, videoSize, STAYS, DEFAULT_STAY, scenePlayer, dropScene, sceneUrl,
-  fontFamilyOf, fontList, artSvg, artReady, loadArt,
+  fontFamilyOf, fontList,
 } from '../src/index.js';
 import { TITLE_FONT } from './templates.js';
+import { HERO_ART, HERO_VIEW } from './hero-art.js';
 // 브라우저가 녹화한 WebM 에는 길이가 적혀 있지 않다. 영상 내려받기에 "길이 적어 넣기"를 쓴다.
 import { fixWebmBlob } from './webm.js';
 // 영상 장면을 카메라로 찍을 때 쓰는 카메라(찍기 · 멈추기 · 앞뒤 카메라 바꾸기).
@@ -253,11 +254,8 @@ function heroShowcase() {
   const covers = layoutList().filter((l) => l.cover);
   if (!covers.length) return null;
   const [main, ...more] = covers;
-  const art = (id, cls) => {
-    const node = el('span', { class: `cv-demo-art ${cls}`, html: artSvg(id, { fit: 'meet' }) });
-    if (!artReady()) loadArt().then(() => { node.innerHTML = artSvg(id, { fit: 'meet' }); }).catch(() => {});
-    return node;
-  };
+  const art = (name, cls) => el('span', { class: `cv-demo-art ${cls}`,
+    html: `<svg viewBox="${HERO_VIEW}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">${HERO_ART[name]}</svg>` });
   const hand = fontList().find((f) => HAND.test(`${f.name} ${f.desc || ''}`));
   const handFont = hand ? `"${fontFamilyOf(hand.id)}", cursive` : '';
   const note = (cls, lines) => {
@@ -284,9 +282,9 @@ function heroShowcase() {
     el('span', { class: 'cv-demo-float cv-demo-t', text: 'T' }),
     el('span', { class: 'cv-demo-float cv-demo-shapes' }, el('i'), el('i'), el('i')),
     el('span', { class: 'cv-demo-float cv-demo-chart' }, el('i'), el('i'), el('i'), el('i')),
-    art('fe:smiling-face-with-smiling-eyes', 'cv-demo-smile'),
-    art('fe:sparkles', 'cv-demo-spark'),
-    art('fe:seedling', 'cv-demo-plant'),
+    art('smiling-face-with-smiling-eyes', 'cv-demo-smile'),
+    art('sparkles', 'cv-demo-spark'),
+    art('seedling', 'cv-demo-plant'),
     note('cv-demo-say', ['아이디어를', '멋진 결과물로!']),
     note('cv-demo-card-note', ['만드는 즐거움이', ['더 넓은 가능성으로 ', el('span', { class: 'cv-demo-heart', text: '♡' })]]));
 }

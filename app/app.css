@@ -756,3 +756,12 @@ body.mc-app #app[data-view="home"] .cv-home > .cv-note { max-width: none; margin
   body.mc-app #app[data-view="home"] .cv-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   body.mc-app #app[data-view="home"] .cv-account { width: 100%; margin-left: 0; }
 }
+
+/* 처음 불러오는 동안: 가운데에서 숨 쉬는 미니캔 표시(app.js 가 첫 화면을 그리면 사라진다). */
+.mc-boot { min-height: 100vh; min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 14px; color: #5c637c; font-size: .95rem; }
+.mc-boot p { margin: 0; }
+.mc-boot-mark { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 18px; background: linear-gradient(145deg, #fff, #eef0fb);
+  box-shadow: 0 6px 18px rgba(23, 28, 68, .10), inset 0 0 0 1px #e3e6f5; color: #171c44; animation: mc-breathe 1.6s ease-in-out infinite; }
+.mc-boot-mark svg { width: 34px; height: 34px; }
+@keyframes mc-breathe { 0%, 100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.07); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mc-boot-mark { animation: none; } }
