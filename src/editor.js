@@ -23,18 +23,18 @@ import { TOLERANCE, colorAlpha, prepareAlpha, finishCutout, resizeMask, plainBor
 const HISTORY = 40;
 // 옆 메뉴의 칸: [이름, 아이콘(icons.js), 보이는 이름, 한 줄 설명]
 const TABS = [
-  ['layout', 'template', '템플릿', '누르면 들어와요. 글을 눌러 내 글로 바꿔요.'],
-  ['text', 'text', '텍스트', '넣은 글은 두 번 눌러 고쳐요.'],
-  ['element', 'shapes', '요소', '누르면 가운데에 놓여요. 색과 크기는 도구 막대에서 바꿔요.'],
-  ['upload', 'upload', '업로드', '내 사진이나 그림을 넣어요.'],
-  ['bg', 'palette', '배경', '바탕색을 골라요.'],
-  ['layer', 'layers', '레이어', '위에 보이는 것부터 차례로 나와요.'],
+  ['layout', 'template', '틀', '만들어 둔 틀을 눌러 시작해요. 글을 눌러 내 글로 바꿔요.'],
+  ['text', 'text', '글', '넣은 글은 두 번 눌러 고쳐요.'],
+  ['element', 'shapes', '꾸미기', '도형과 그림 조각을 눌러 놓아요. 색과 크기는 위 도구에서 바꿔요.'],
+  ['upload', 'upload', '내 자료', '내 사진을 올리거나 유튜브 영상을 넣어요.'],
+  ['bg', 'palette', '바탕색', '이 장의 바탕색을 골라요.'],
+  ['layer', 'layers', '겹 순서', '앞에 보이는 조각부터 차례로 나와요.'],
 ];
 // 움직임 칸은 configure({ motion: true }) 를 한 프로젝트에만 나온다(발표 화면이 있는 곳).
-const MOTION_TAB = ['motion', 'motion', '움직임', '발표할 때 요소와 장이 움직여요.'];
+const MOTION_TAB = ['motion', 'motion', '움직임', '발표할 때 조각과 장이 움직여요.'];
 const tabList = () => (settings().motion ? [...TABS, MOTION_TAB] : TABS);
 // 영상 칸은 편집기에 saveVideo 를 준 프로젝트에만 나온다(업로드 칸 다음에). 영상 장면: 그 장의 바탕에 까는 영상.
-const VIDEO_TAB = ['video', 'video', '영상', '이 장의 바탕에 영상을 깔아요.'];
+const VIDEO_TAB = ['video', 'video', '바탕 영상', '이 장의 바탕에 영상을 깔아요.'];
 // 영상 장면의 한도(기본값): 카메라로 한 번에 찍는 길이(초) · 골라 넣는 파일의 길이(초)와 크기(바이트)
 const VIDEO_LIMITS = { maxSeconds: 60, maxFileSeconds: 300, maxBytes: 200 * 1024 * 1024 };
 const ALIGN_NAME = { l: '왼쪽', c: '가운데', r: '오른쪽' };
@@ -153,9 +153,9 @@ export function createEditor({
   const overlay = el('div', { class: 'fe-overlay' }, othersBox, manyBox, guideV, guideH, selBox, groupBox, marquee, sceneFlag);
   const stage = el('div', {
     class: 'fe-stage', tabindex: '0', role: 'group',
-    'aria-label': '꾸미기 판. 요소를 누르면 고르고, 끌면 옮겨요. 화살표 키로도 옮길 수 있어요.',
+    'aria-label': '꾸미기 판. 조각을 누르면 고르고, 끌면 옮겨요. 화살표 키로도 옮길 수 있어요.',
   }, cardEl, overlay);
-  const bar = el('div', { class: 'fe-bar', role: 'toolbar', 'aria-label': '고른 요소의 도구' });
+  const bar = el('div', { class: 'fe-bar', role: 'toolbar', 'aria-label': '고른 조각의 도구' });
   const popBox = el('div', { class: 'fe-pop', hidden: true });
   const toolbar = el('div', { class: 'fe-tools' }, bar, popBox);
   const panel = el('div', { class: 'fe-panel' });
@@ -270,8 +270,24 @@ export function createEditor({
     for (const n of [...cardEl.children]) if (n !== scene?.layer) n.remove();
     cardEl.append(...nodes,
       // 비어 있을 때만 보이는 안내(화면에만 있다: 디자인에도, 내보낸 그림에도 들어가지 않는다)
-      ...(nodes.length || card.video ? [] : [el('div', { class: 'fe-empty' }, icon('image'), el('b', { text: '여기에 꾸며요' }), el('span', { text: '템플릿·텍스트·요소를 골라 넣어요' }))]));
+      // 빈 장에서는 무엇부터 할지 바로 고르는 단추를 함께 보인다(왼쪽 도구를 찾지 않아도 시작할 수 있게).
+      ...(nodes.length || card.video ? [] : [el('div', { class: 'fe-empty' },
+        el('b', { text: '무엇부터 놓을까요?' }),
+        el('span', { text: '아래 단추를 누르거나, 도구 칸에서 골라요' }),
+        el('div', { class: 'fe-empty-go', role: 'group', 'aria-label': '빠르게 시작하기' },
+          quick('text', '큰 제목 쓰기', () => add(newPresetText('title'))),
+          quick('shapes', '꾸미기', () => openTab('element')),
+          quick('upload', '사진 · 영상', () => openTab('upload')),
+          quick('template', '틀 고르기', () => openTab('layout'))))]));
     syncSel();
+  }
+
+  // 빈 장의 빠른 시작 단추 · 옆 칸의 그 도구 열기(옆 칸이 접혀 있으면 들어 있는 화면이 편다: 단추를 누른 것과 같다)
+  function quick(pic, text, onClick) { return el('button', { class: 'fe-quick', type: 'button', onClick }, icon(pic), el('span', { text })); }
+  function openTab(id) {
+    const btn = panel.querySelector(`.fe-tab[data-tab="${id}"]`);
+    if (btn && !btn.classList.contains('on')) btn.click(); else btn?.focus();
+    btn?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }
 
   // ---------- 영상 장면(이 장의 바탕에 깐 영상) ----------
@@ -371,7 +387,7 @@ export function createEditor({
     renderBar();
     if (tab === 'video') renderPanel();
     onChange();
-    notify(had ? '영상을 바꿨어요. 실행 취소로 되돌릴 수 있어요.' : '영상을 깔았어요. 그 위에 글과 요소를 올릴 수 있어요.', 4000);
+    notify(had ? '영상을 바꿨어요. 실행 취소로 되돌릴 수 있어요.' : '영상을 깔았어요. 그 위에 글과 조각을 올릴 수 있어요.', 4000);
     return true;
   }
   // 영상을 넣은 뒤: 글쇠로 누르던 사람이 길을 잃지 않게 초점을 "틀어 보기"(없으면 꾸미기 판)에 둔다.
@@ -666,7 +682,7 @@ export function createEditor({
   }
   // 고른 것 가운데 하나를 넣거나 뺀다(Shift 를 누른 채 누르기).
   function toggleChosen(i) {
-    if (!free(i)) { notify(items()[i]?.lock ? '잠근 요소는 함께 고를 수 없어요. 먼저 잠금을 풀어요.' : '친구가 고르고 있는 요소예요.', 3000); return; }
+    if (!free(i)) { notify(items()[i]?.lock ? '잠근 조각은 함께 고를 수 없어요. 먼저 잠금을 풀어요.' : '친구가 고르고 있는 조각이에요.', 3000); return; }
     const list = chosen().filter(free);
     const group = groupOf(i);
     selectMany(list.includes(i) ? list.filter((k) => !group.includes(k)) : [...list, ...group]);
@@ -732,7 +748,7 @@ export function createEditor({
 
   function add(item, { edit = true } = {}) {
     if (!item) return;
-    if (items().length >= settings().maxItems) { notify(`카드 한 장에는 요소를 ${settings().maxItems}개까지 놓을 수 있어요.`); return; }
+    if (items().length >= settings().maxItems) { notify(`카드 한 장에는 조각을 ${settings().maxItems}개까지 놓을 수 있어요.`); return; }
     endEdit();
     // 같은 자리에 겹쳐 놓이지 않게 조금씩 비켜 놓는다.
     let n = 0;
@@ -775,7 +791,7 @@ export function createEditor({
   function copy() {
     if (many.length) { copyMany(); return; }
     const dup = duplicateItem(items(), sel);
-    if (!dup) { notify(cur()?.t === 'image' ? `사진은 카드 한 장에 ${settings().maxPhotos}장까지예요.` : `카드 한 장에는 요소를 ${settings().maxItems}개까지 놓을 수 있어요.`); return; }
+    if (!dup) { notify(cur()?.t === 'image' ? `사진은 카드 한 장에 ${settings().maxPhotos}장까지예요.` : `카드 한 장에는 조각을 ${settings().maxItems}개까지 놓을 수 있어요.`); return; }
     endEdit();
     stopDrag();
     remember();
@@ -797,7 +813,7 @@ export function createEditor({
     if (short && made.length) notify(short);
     focusStage();
   }
-  const fullNote = (image) => (image ? `사진은 카드 한 장에 ${settings().maxPhotos}장까지예요.` : `카드 한 장에는 요소를 ${settings().maxItems}개까지 놓을 수 있어요.`);
+  const fullNote = (image) => (image ? `사진은 카드 한 장에 ${settings().maxPhotos}장까지예요.` : `카드 한 장에는 조각을 ${settings().maxItems}개까지 놓을 수 있어요.`);
   // 고른 것들을 하나씩 복제한다(겹치는 순서는 그대로, 새것은 맨 앞에).
   function copyMany() {
     let list = items();
@@ -853,7 +869,7 @@ export function createEditor({
   }
   // at({ x, y })을 주면 그 자리에(오른쪽 누르기 메뉴로 빈 곳에 붙일 때. 여럿이면 그 가운데가 거기에), 아니면 원래 자리에서 조금 옆에.
   function clipPaste(at = null) {
-    if (!clipboard?.length) { notify('먼저 요소를 복사해요 (오른쪽 누르기 → 복사).'); return; }
+    if (!clipboard?.length) { notify('먼저 조각을 복사해요 (오른쪽 누르기 → 복사).'); return; }
     const cx = clipboard.reduce((n, k) => n + k.x, 0) / clipboard.length;
     const cy = clipboard.reduce((n, k) => n + k.y, 0) / clipboard.length;
     let list = items();
@@ -1084,7 +1100,7 @@ export function createEditor({
     const reordered = layoutGroups()[0]?.name !== first;
     if (reordered) renderPanel({ top: true });
     else showArmed();
-    notify(had ? '템플릿으로 바꿨어요. 실행 취소로 되돌릴 수 있어요.' : '글을 두 번 눌러 내 글로 바꿔요.', 3500);
+    notify(had ? '틀로 바꿨어요. 실행 취소로 되돌릴 수 있어요.' : '글을 두 번 눌러 내 글로 바꿔요.', 3500);
     focusStage();
     // 템플릿 칸이 페이지와 함께 길게 스크롤되는 화면에서: 카드가 화면 밖에 있으면 바뀐 카드가 보이는 곳으로 간다.
     // 카드는 보이는데 묶음의 차례가 바뀌었고 칸의 머리가 위로 지나가 있으면, 칸의 머리(지금 테마의 묶음)로 간다.
@@ -1094,7 +1110,7 @@ export function createEditor({
   }
   // "한 번 더 눌러요" 표시를 제자리에서 바꾼다. 템플릿 칸을 통째로 다시 그리면 작은 그림 수십 장을 새로 그려야 해서 느리고,
   // 누른 단추가 새로 만들어져 글쇠로 누르던 초점도 사라진다.
-  const armNote = () => el('p', { class: 'fe-note strong fe-arm-note', text: '꾸며 둔 글과 요소가 템플릿으로 바뀌어요(사진은 남아요). 바꾸려면 한 번 더 눌러요.' });
+  const armNote = () => el('p', { class: 'fe-note strong fe-arm-note', text: '꾸며 둔 글과 조각이 틀로 바뀌어요(사진은 남아요). 바꾸려면 한 번 더 눌러요.' });
   function showArmed() {
     const tiles = [...panel.querySelectorAll('.fe-layout')];
     if (tab !== 'layout' || !tiles.length) { renderPanel(); return; }
@@ -1218,7 +1234,7 @@ export function createEditor({
     const text = e.clipboardData?.getData('text/plain') || '';
     e.preventDefault();
     if (parseYouTube(text)) addYouTube(text);
-    else notify('먼저 요소를 복사해요 (오른쪽 누르기 → 복사). 유튜브 주소를 붙여 넣으면 영상이 들어가요.', 4000);
+    else notify('먼저 조각을 복사해요 (오른쪽 누르기 → 복사). 유튜브 주소를 붙여 넣으면 영상이 들어가요.', 4000);
   });
   cardEl.addEventListener('paste', (e) => {
     if (editing < 0) return;
@@ -1271,6 +1287,7 @@ export function createEditor({
   // ---------- 끌기·크기·돌리기 ----------
   stage.addEventListener('pointerdown', (e) => {
     if (e.button > 0 || !card || drag) return;      // 끄는 중에 다른 손가락이 닿으면 모른 척한다
+    if (e.target.closest?.('.fe-empty-go')) return;  // 빈 장의 빠른 시작 단추는 그냥 누른다(고르기 · 끌기를 시작하지 않는다)
     if (editing >= 0 && nodes[editing]?.contains(e.target)) return;   // 글을 고치는 중에는 글 안을 눌러 자리를 옮길 수 있게 둔다
     endEdit();
     stopPreview();                                  // 미리 보던 움직임은 끝낸다(숨겨 둔 요소가 있으면 다시 보인다)
@@ -1992,13 +2009,13 @@ export function createEditor({
       const ink = el('span', { class: 'fe-ink' });
       ink.style.background = backgroundOf(card.bg).bg;
       bar.replaceChildren(...always,
-        tb([icon('palette'), el('span', { class: 'fe-lbl', text: '배경색' }), ink], () => toggle('pagebg'), {
-          title: '카드의 배경색 바꾸기', name: '배경색', on: pop === 'pagebg', cls: 'has-pop pagebg',
+        tb([icon('palette'), el('span', { class: 'fe-lbl', text: '바탕색' }), ink], () => toggle('pagebg'), {
+          title: '카드의 바탕색 바꾸기', name: '바탕색', on: pop === 'pagebg', cls: 'has-pop pagebg',
         }),
         el('span', { class: 'fe-sep' }),
         el('span', { class: 'fe-hint', text: items().length
-          ? '요소를 누르면 꾸미는 도구가 나와요 · Shift 누르기나 빈 곳 끌기로 여럿 고르기' : '옆 메뉴에서 템플릿이나 텍스트를 넣어 시작해요.' }));
-      const body = pop === 'pagebg' ? [el('div', { class: 'fe-poshead', text: '배경색' }), bgPicker(), el('p', { class: 'fe-note', text: bgNote })] : null;
+          ? '조각을 누르면 꾸미는 도구가 나와요 · Shift 누르기나 빈 곳 끌기로 여럿 고르기' : '도구 칸에서 틀이나 글을 넣어 시작해요.' }));
+      const body = pop === 'pagebg' ? [el('div', { class: 'fe-poshead', text: '바탕색' }), bgPicker(), el('p', { class: 'fe-note', text: bgNote })] : null;
       popBox.hidden = !body;
       popBox.replaceChildren(...(body ? [
         el('button', { class: 'fe-pop-close', type: 'button', 'aria-label': '닫기', title: '닫기 (Esc)', onClick: () => toggle(pop) }, icon('close')), ...body] : []));
@@ -2006,7 +2023,7 @@ export function createEditor({
     }
     if (it.lock) {
       bar.replaceChildren(...always,
-        el('span', { class: 'fe-hint' }, icon('lock'), `잠근 요소예요 (${itemLabel(it)})`),
+        el('span', { class: 'fe-hint' }, icon('lock'), `잠근 조각이에요 (${itemLabel(it)})`),
         tb([icon('unlock'), '잠금 해제'], () => change({ lock: false }), { cls: 'unlock' }));
       popBox.hidden = true;
       popBox.replaceChildren();
@@ -2089,7 +2106,7 @@ export function createEditor({
       group('스타일', ...own, pick('opacity', '투명도', 'op', { title: '투명도: 낮출수록 비쳐 보여요' })),
       el('span', { class: 'fe-sep' }),
       group('배치',
-        it.t === 'text' ? null : pick('resize', '크기', 'size', { title: '요소의 크기 (가로세로 비율은 그대로)' }),      // 텍스트는 − 숫자 + 로 바꾼다
+        it.t === 'text' ? null : pick('resize', '크기', 'size', { title: '조각의 크기 (가로세로 비율은 그대로)' }),      // 텍스트는 − 숫자 + 로 바꾼다
         it.t === 'text' || it.t === 'yt' ? null : pick('flipH', '뒤집기', 'flip', { title: '좌우·상하 뒤집기, 바로 세우기' }),
         pick('layers', '위치', 'pos', { title: '겹치는 순서와 페이지 정렬' })),
       el('span', { class: 'fe-sep' }),
@@ -2261,7 +2278,7 @@ export function createEditor({
   }
 
   // ---------- 배경색 고르기(옆 메뉴의 배경 칸과, 아무것도 고르지 않았을 때 도구 막대의 "배경색" 칸이 함께 쓴다) ----------
-  const bgNote = '사진을 배경으로 쓰려면 업로드에서 사진을 넣고, 사진을 고른 뒤 "배경으로 깔기"를 눌러요.';
+  const bgNote = '사진을 배경으로 쓰려면 내 자료에서 사진을 넣고, 사진을 고른 뒤 "배경으로 깔기"를 눌러요.';
   function bgPicker() {
     const now = backgroundOf(card.bg);
     const custom = el('input', {
@@ -2473,19 +2490,19 @@ export function createEditor({
         const choices = [follow, ...(here.pa ? [{ id: STILL, name: '가만히' }] : []), ...ENTERS];
         const now = it.an === STILL && !here.pa ? '' : it.an || '';
         return [
-          el('div', { class: 'fe-head', text: `고른 요소 · ${itemLabel(it)}` }),
+          el('div', { class: 'fe-head', text: `고른 조각 · ${itemLabel(it)}` }),
           el('div', { class: 'fe-grid two fe-motion-when', role: 'group', 'aria-label': '나타나는 때' },
             pbtn('장이 열릴 때', () => setWait(false), { 'aria-pressed': String(!it.aw), class: `fe-btn${it.aw ? '' : ' on'}` }),
             pbtn('누를 때', () => setWait(true), { 'aria-pressed': String(!!it.aw), class: `fe-btn${it.aw ? ' on' : ''}` })),
           it.aw ? el('p', { class: 'fe-note', text: '발표하다가 화면을 누르면(또는 오른쪽 화살표 · 스페이스) 그때 나타나요. 여러 개면 위에서부터 하나씩 나와요.' }) : null,
-          el('div', { class: 'fe-motions', role: 'group', 'aria-label': '고른 요소가 나타나는 모양', dataset: { group: 'mine' } }, ...choices.map((c) => motionTile({
+          el('div', { class: 'fe-motions', role: 'group', 'aria-label': '고른 조각이 나타나는 모양', dataset: { group: 'mine' } }, ...choices.map((c) => motionTile({
             group: 'mine', name: c.name, on: now === c.id, kind: c.id && c.id !== STILL ? 'enter' : c.id === '' && here.pa ? 'follow' : 'none', id: c.id,
             onPick: () => setEnter(c.id),
           }))),
         ];
       }) : [];
       const combos = motionPart('combo', here.pa || '', () => [
-        el('div', { class: 'fe-head', text: '요소들이 나오는 모양 · 조합 효과' }),
+        el('div', { class: 'fe-head', text: '조각들이 나오는 모양 · 조합 효과' }),
         el('div', { class: 'fe-motions', role: 'group', 'aria-label': '조합 효과', dataset: { group: 'combo' } },
           motionTile({ group: 'combo', name: '없음', on: !here.pa, kind: 'none', onPick: () => setCombo('') }),
           ...COMBOS.map((c) => motionTile({ group: 'combo', name: c.name, hint: c.hint, on: here.pa === c.id, kind: 'combo', id: c.id, onPick: () => setCombo(c.id) }))),
@@ -2514,7 +2531,7 @@ export function createEditor({
           onMotionAll(designMotion(card));
         },
       }, ALL) : null;
-      const hint = it?.lock ? '잠근 요소는 잠금을 풀면 움직임을 정할 수 있어요. ' : it ? '' : '요소를 하나 고르면 그 요소만 다르게 움직이게 할 수 있어요. ';
+      const hint = it?.lock ? '잠근 조각은 잠금을 풀면 움직임을 정할 수 있어요. ' : it ? '' : '조각을 하나 고르면 그 조각만 다르게 움직이게 할 수 있어요. ';
       return [
         ...mine, ...combos, ...turns,
         el('div', { class: 'fe-row fe-motion-go' },
@@ -2532,7 +2549,7 @@ export function createEditor({
         el('small', { text: armed === l.id ? '한 번 더 눌러요' : l.name }));
       return layoutGroups().flatMap((g) => [
         g.name ? el('div', { class: 'fe-head', text: g.name }) : null,
-        el('div', { class: 'fe-layouts', role: 'group', 'aria-label': g.name ? `${g.name} 템플릿` : '템플릿' }, ...g.list.map(tile)),
+        el('div', { class: 'fe-layouts', role: 'group', 'aria-label': g.name ? `${g.name} 틀` : '틀' }, ...g.list.map(tile)),
         armed && g.list.some((l) => l.id === armed) ? armNote() : null,
       ]);
     }
@@ -2561,7 +2578,7 @@ export function createEditor({
             if (photos >= settings().maxPhotos) { notify(`사진은 카드 한 장에 ${settings().maxPhotos}장까지예요.`); return; }
             fileInput.click();
           },
-        }, ...(busy ? ['올리는 중…'] : [icon('upload'), '파일 업로드'])),
+        }, ...(busy ? ['올리는 중…'] : [icon('upload'), '사진 올리기'])),
         el('p', { class: 'fe-note', text: `PNG·JPG 사진이나 그림을 올려요. 이 카드에 ${photos}/${settings().maxPhotos}장 있어요.` }),
         el('p', { class: 'fe-note', text: '올린 사진을 누르면 도구 막대에서 배경 제거, 테두리 모양, 크기, 투명도, 뒤집기를 쓸 수 있어요.' }),
         el('p', { class: 'fe-note', text: '내가 찍거나 그린 것, 허락을 받은 것만 올리고, 얼굴·이름 같은 개인 정보가 없는지 살펴봐요.' }),
@@ -2592,9 +2609,9 @@ export function createEditor({
       return row;
     }).reverse());
     return [
-      items().length ? list : el('p', { class: 'fe-note', text: '아직 넣은 요소가 없어요.' }),
+      items().length ? list : el('p', { class: 'fe-note', text: '아직 넣은 조각이 없어요.' }),
       items().length > 1 ? el('p', { class: 'fe-note', text: '눌러서 고르고, 끌어서 순서를 바꿔요. 위에 있는 줄이 그림에서 앞에 보여요.' })
-        : items().length ? el('p', { class: 'fe-note', text: '눌러서 골라요. 요소가 여러 개면 끌어서 순서를 바꿀 수 있어요.' }) : null,
+        : items().length ? el('p', { class: 'fe-note', text: '눌러서 골라요. 조각이 여러 개면 끌어서 순서를 바꿀 수 있어요.' }) : null,
     ];
   }
 
@@ -2618,7 +2635,7 @@ export function createEditor({
       return [
         record('카메라로 찍기', 'primary'),
         pick('영상 파일 고르기', createCamera ? '' : 'primary'),
-        el('p', { class: 'fe-note', text: '영상은 이 장의 바탕에 깔려요. 그 위에 글과 요소를 올려 꾸밀 수 있어요.' }),
+        el('p', { class: 'fe-note', text: '영상은 이 장의 바탕에 깔려요. 그 위에 글과 조각을 올려 꾸밀 수 있어요.' }),
         el('p', { class: 'fe-note', text: `MP4나 WebM 영상을 넣을 수 있어요(${minutesText(limits.maxFileSeconds)}, ${megabytes(limits.maxBytes)}MB까지).` }),
         where, care,
       ];
@@ -2779,7 +2796,7 @@ export function createEditor({
           if (files.length >= max) { notify(`올린 파일은 ${max}개까지 둘 수 있어요. 안 쓰는 파일을 지우고 다시 올려요.`, 4500); return; }
           fileInput.click();
         },
-      }, ...(busy ? ['올리는 중…'] : [icon('upload'), '파일 업로드'])),
+      }, ...(busy ? ['올리는 중…'] : [icon('upload'), '사진 올리기'])),
       el('div', { class: 'fe-files-head' }, el('b', { class: 'fe-head', text: '올린 파일' }), el('span', { class: 'fe-files-count', text: `${files.length}/${max}` })),
       // 지우기 전에 한 번 더 묻는다. 쓰고 있는 파일이면 쓴 곳에서도 사라진다고 알려 준다.
       armedImg ? el('div', { class: 'fe-file-ask', role: 'group', 'aria-label': '올린 파일 지우기' },

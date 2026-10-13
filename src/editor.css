@@ -37,8 +37,19 @@
 /* 빈 카드의 안내(편집 화면에만 보인다): 아이콘 + 한 줄 + 작은 한 줄. 글만 넣은 것(designView 의 empty)도 가운데에 온다 */
 .fe-empty {
   position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 6px; padding: 8%; text-align: center;
-  font-size: 5cqw; font-weight: 700; opacity: .5; pointer-events: none;
+  font-size: 5cqw; font-weight: 700; pointer-events: none;
 }
+.fe-empty > b, .fe-empty > span, .fe-empty > .fe-ic { opacity: .55; }
+/* 빈 장의 빠른 시작 단추: 종이 위에 놓인 작은 쪽지처럼 */
+.fe-empty-go { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; pointer-events: auto; }
+.fe-quick {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 7px 14px; border: 1px solid rgba(36, 50, 45, .16); border-radius: 999px;
+  background: #fffdf8; color: #24322d; font: inherit; font-size: clamp(12px, 3cqw, 14px); font-weight: 700; cursor: pointer; box-shadow: 0 2px 0 rgba(36, 50, 45, .08);
+}
+.fe-empty .fe-quick .fe-ic { width: 18px; height: 18px; margin: 0; opacity: 1; color: var(--fe-primary); }
+.fe-empty .fe-quick .fe-ic svg { stroke-width: 2; }
+.fe-quick:hover { border-color: var(--fe-primary); transform: translateY(-1px); }
+.fe-quick:focus-visible { outline: 3px solid var(--fe-primary); outline-offset: 2px; }
 /* 카드가 아주 커도(큰 화면) 안내가 따라서 커지지 않게 크기에 한도를 둔다 */
 .fe-empty .fe-ic { width: clamp(30px, 11cqw, 52px); height: clamp(30px, 11cqw, 52px); margin-bottom: 4px; opacity: .8; }
 .fe-empty .fe-ic svg { stroke-width: 1.5; }

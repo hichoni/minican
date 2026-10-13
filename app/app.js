@@ -180,7 +180,7 @@ const FEATS = [
   ['copy', '카드', 'mint'],
   ['image', '포스터', 'sky'],
   ['screen', '발표 자료', 'lilac'],
-  ['template', '다양한 템플릿', 'sun'],
+  ['template', '다양한 틀', 'sun'],
 ];
 // 첫 화면의 "템플릿으로 시작하기"는 두 칸이다: 주제 테마(표지 9종, 발표 화면 모양) · 기본 짜임(6종).
 const STARTS = [['theme', '주제 테마'], ['basic', '기본 짜임']];
@@ -302,7 +302,7 @@ function heroShowcase() {
       el('span', { class: 'cv-demo-undo' }, ic('undo'), ic('redo')),
       el('span', { class: 'cv-demo-down' }, ic('download'), '내려받기')),
     el('div', { class: 'cv-demo-body' },
-      el('ul', { class: 'cv-demo-rail' }, ...[['template', '템플릿'], ['shapes', '요소'], ['text', '텍스트'], ['image', '사진'], ['motion', '움직임']]
+      el('ul', { class: 'cv-demo-rail' }, ...[['template', '틀'], ['text', '글'], ['shapes', '꾸미기'], ['upload', '내 자료'], ['motion', '움직임']]
         .map(([pic, text]) => el('li', {}, ic(pic), el('span', { text })))),
       el('div', { class: 'cv-demo-canvas' }, el('span', { class: 'cv-demo-card' }, layoutThumb(main)),
         el('span', { class: 'cv-demo-pick' }, el('i'), el('i'), el('i'), el('i')), el('span', { class: 'cv-demo-cursor', html: cursor })),
@@ -362,15 +362,15 @@ function render() {
     heroShowcase()));
 
   // 템플릿은 소개 카드 아래의 같은 본문 폭에서 골라 바로 시작한다.
-  const track = el('div', { id: 'onba-template-list', class: `cv-start-list ${startTab}`, dataset: { starts: startTab }, role: 'group', 'aria-label': `${STARTS.find(([id]) => id === startTab)[1]} 템플릿` }, ...starts.map(([l, name]) => el('button', {
+  const track = el('div', { id: 'onba-template-list', class: `cv-start-list ${startTab}`, dataset: { starts: startTab }, role: 'group', 'aria-label': `${STARTS.find(([id]) => id === startTab)[1]} 틀` }, ...starts.map(([l, name]) => el('button', {
     class: 'cv-start', type: 'button', disabled: loading || full, dataset: { layout: l.id }, onClick: (e) => startNew(l.id, e.currentTarget),
   }, el('span', { class: 'cv-start-view', 'aria-hidden': 'true' }, layoutThumb(l)), el('b', { text: name }))));
-  const previous = el('button', { class: 'cv-start-arrow cv-start-prev', type: 'button', disabled: true, 'aria-label': '이전 템플릿 보기', 'aria-controls': 'onba-template-list', title: '이전 템플릿 보기' }, ic('left'));
-  const next = el('button', { class: 'cv-start-arrow cv-start-next', type: 'button', 'aria-label': '다음 템플릿 보기', 'aria-controls': 'onba-template-list', title: '다음 템플릿 보기' }, ic('right'));
+  const previous = el('button', { class: 'cv-start-arrow cv-start-prev', type: 'button', disabled: true, 'aria-label': '이전 틀 보기', 'aria-controls': 'onba-template-list', title: '이전 틀 보기' }, ic('left'));
+  const next = el('button', { class: 'cv-start-arrow cv-start-next', type: 'button', 'aria-label': '다음 틀 보기', 'aria-controls': 'onba-template-list', title: '다음 틀 보기' }, ic('right'));
   const templates = el('section', { class: 'cv-starts', 'aria-labelledby': 'onba-templates' },
-      el('div', { class: 'cv-starts-head' }, el('h2', { id: 'onba-templates', text: '템플릿으로 시작하기' }),
+      el('div', { class: 'cv-starts-head' }, el('h2', { id: 'onba-templates', text: '틀로 시작하기' }),
         el('div', { class: 'cv-starts-tools' },
-        el('div', { class: 'cv-seg', role: 'group', 'aria-label': '템플릿 종류' }, ...STARTS.map(([id, name]) => el('button', {
+        el('div', { class: 'cv-seg', role: 'group', 'aria-label': '틀 종류' }, ...STARTS.map(([id, name]) => el('button', {
           class: `cv-seg-btn${startTab === id ? ' on' : ''}`, type: 'button', 'aria-pressed': String(startTab === id), dataset: { starts: id },
           onClick: () => {
             if (startTab === id) return;
@@ -380,7 +380,7 @@ function render() {
             document.querySelector('.cv-seg-btn.on')?.focus({ preventScroll: true });   // 다시 그리면서 사라진 초점을 고른 단추에 돌려놓는다
           },
         }, name))),
-          el('div', { class: 'cv-start-arrows', role: 'group', 'aria-label': '템플릿 좌우 이동' }, previous, next))),
+          el('div', { class: 'cv-start-arrows', role: 'group', 'aria-label': '틀 좌우 이동' }, previous, next))),
       track);
 
   // ② 내 그림: 불러온다 → 없으면 없다고 알리고 새로 만들게 한다. 그림은 이 기기에만 저장된다.
@@ -400,7 +400,7 @@ function render() {
     mine.append(el('div', { class: 'cv-state cv-empty', role: 'status' },
       el('span', { class: 'cv-state-icon', 'aria-hidden': 'true' }, el('i'), el('i'), el('i')),
       el('b', { text: sync ? (S.account === 'syncing' ? '계정의 그림을 맞추는 중이에요…' : '저장된 그림이 없어요') : '이 기기에 저장된 그림이 없어요' }),
-      el('span', { class: 'muted', text: '새 그림을 만들면 여기에 저절로 저장돼요. 위의 템플릿으로 시작해도 좋아요.' }),
+      el('span', { class: 'muted', text: '새 그림을 만들면 여기에 저절로 저장돼요. 위의 틀로 시작해도 좋아요.' }),
       newBtn('btn-primary cv-empty-btn')));
   } else {
     mine.append(el('div', { class: 'cv-list' }, ...list.map((r) => itemCard(r))));
@@ -1217,7 +1217,7 @@ function askDownload(O, btn) {
   const draw = () => {
     const video = pick.kind === 'video';
     lead.textContent = !video ? '크기를 누르면 바로 내려받아요. 클수록 또렷하지만 파일이 커져요.'
-      : scenes.some(Boolean) && !live ? '크기를 누르면 영상을 만들기 시작해요. 글과 요소가 발표할 때처럼 움직여요.'
+      : scenes.some(Boolean) && !live ? '크기를 누르면 영상을 만들기 시작해요. 글과 조각이 발표할 때처럼 움직여요.'
         : '크기를 누르면 영상을 만들기 시작해요. 발표할 때처럼 움직이는 영상이 돼요.';
     // 영상은 모든 장을 차례로 담는다. 너무 길면(한도를 넘으면) 만들지 않는다: 크기 단추를 잠그고 까닭을 알려 준다.
     const ms = video ? filmMs(pick.stay) : 0;

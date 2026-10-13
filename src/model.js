@@ -793,9 +793,9 @@ export function fitPhoto(img) {
 // ---------- 텍스트 종류(제목 · 소제목 · 본문) ----------
 
 export const TEXT_PRESETS = [
-  { id: 'title', name: '제목 추가', text: '제목을 써요', size: 11, bold: true },
-  { id: 'sub', name: '부제목 추가', text: '부제목을 써요', size: 7.5, bold: true },
-  { id: 'body', name: '본문 추가', text: '본문을 써요', size: 5, bold: false },
+  { id: 'title', name: '큰 제목', text: '제목을 써요', size: 11, bold: true },
+  { id: 'sub', name: '작은 제목', text: '작은 제목을 써요', size: 7.5, bold: true },
+  { id: 'body', name: '이야기 글', text: '하고 싶은 이야기를 써요', size: 5, bold: false },
 ];
 export function newPresetText(id, extra = {}) {
   const p = TEXT_PRESETS.find((k) => k.id === id) || TEXT_PRESETS[2];

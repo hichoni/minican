@@ -34,3 +34,27 @@ body.mc-app #app[data-view="home"] .cv-starts-head h2,body.mc-app #app[data-view
  body.mc-app #app[data-view="home"] .cv-hero-kicker{margin-top:20px;font-size:1.4rem}
  body.mc-app #app[data-view="home"] .btn.cv-cta{white-space:normal;text-align:left}
 }
+
+/* ---------- 온바탕의 꾸미는 화면: 종이 바탕 ----------
+   도구 줄은 밝은 종이색에 둥근 아이콘 칸(고른 것은 초록으로 채운다), 작업대는 따뜻한 종이에 옅은 점 무늬,
+   위 막대와 장 띠도 종이색으로. 같은 화면 짜임이라도 온바탕만의 색과 결로 보이게 한다. */
+@media (min-width:900px) and (min-height:520px){
+ .cv-app{--cv-desk:#ebe6d8;background:#ebe6d8}
+ .cv-app>.cv-bar{background:#fffdf8;border-bottom:1px solid #e4dfd0}
+ .cv-canvas{background-image:radial-gradient(rgba(36,50,45,.11) 1px,transparent 1.3px);background-size:18px 18px;background-position:9px 9px}
+ .cv-tools .fe-tools{background:#fffdf8;border-bottom-color:#e4dfd0}
+ .cv-strip{background:#f5f2e9;border-top-color:#e4dfd0}
+ .cv-side{border-right-color:#e4dfd0}
+ .cv-side .fe-tabs{background:#f5f2e9;border-right:1px solid #e4dfd0;gap:2px;padding:12px 6px}
+ .cv-side .fe-tab{gap:5px;padding:7px 2px 8px;color:#4a5853;font-weight:650;border-radius:14px}
+ .cv-side .fe-tab .fe-tab-icon{box-sizing:border-box;width:38px;height:38px;padding:8px;border-radius:13px;background:#fffdf8;color:#286f62;box-shadow:inset 0 0 0 1px #e2ddcf;transition:background-color .14s ease,color .14s ease}
+ .cv-side .fe-tab:hover{background:#ece6d6;color:#24322d}
+ .cv-side .fe-tab.on{background:transparent;color:#24322d}
+ .cv-side .fe-tab.on .fe-tab-icon{background:#286f62;color:#fff;box-shadow:0 3px 8px rgba(40,111,98,.28)}
+ .cv-side .fe-tab.on::before{display:none}
+ .cv-side .fe-tabs .fe-tab:focus-visible{outline:3px solid #e5af70;outline-offset:-2px}
+ .cv-app.folded .cv-side .fe-tab.on{background:transparent;color:#4a5853}
+ .cv-app.folded .cv-side .fe-tab.on .fe-tab-icon{background:#fffdf8;color:#286f62;box-shadow:inset 0 0 0 1px #e2ddcf}
+ .cv-side .fe-tabbody{background:#fffdf8}
+ .cv-fold{background:#fffdf8;border-color:#e4dfd0}
+}
