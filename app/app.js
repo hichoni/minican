@@ -261,7 +261,7 @@ function heroShowcase() {
   const hand = fontList().find((f) => HAND.test(`${f.name} ${f.desc || ''}`));
   const handFont = hand ? `"${fontFamilyOf(hand.id)}", cursive` : '';
   const note = (cls, lines) => {
-    const node = el('p', { class: `cv-demo-note ${cls}` }, ...lines.flatMap((t, i) => (i ? [el('br'), t] : [t])));
+    const node = el('p', { class: `cv-demo-note ${cls}` }, ...lines.flatMap((t, i) => (i ? [el('br'), ...[t].flat()] : [t].flat())));
     if (handFont) node.style.fontFamily = handFont;
     return node;
   };
@@ -288,7 +288,7 @@ function heroShowcase() {
     art('fe:sparkles', 'cv-demo-spark'),
     art('fe:seedling', 'cv-demo-plant'),
     note('cv-demo-say', ['아이디어를', '멋진 결과물로!']),
-    note('cv-demo-card-note', ['만드는 즐거움이', '더 넓은 가능성으로 ♡']));
+    note('cv-demo-card-note', ['만드는 즐거움이', ['더 넓은 가능성으로 ', el('span', { class: 'cv-demo-heart', text: '♡' })]]));
 }
 
 // 처음 불러온 그림들은 살짝 떠오르며 나타난다(그 뒤에 다시 그릴 때는 움직이지 않는다).
