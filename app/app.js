@@ -28,6 +28,7 @@ import { mergeAccount, createPusher } from './sync.js';
 
 let app = null;
 let onView = () => {};
+let onBrandClick = null;
 let brand = null;                // 들여 쓰는 곳의 표시 { name, logo } (없으면 표시하지 않는다)
 let sync = null;                 // 들여 쓰는 곳의 계정 저장(sync.js). 없으면 이 기기에만 저장한다
 let pusher = null;
@@ -512,7 +513,10 @@ function openDesign(record, isNew) {
   }));
   O.shapes = shapes;
   // 위 막대: 나가기 · 이름 · 저장 상태 | 모양 · 발표 · 내려받기
-  const mark = brand ? el('span', { class: 'cv-brand', title: brand.name }, el('img', { src: brand.logo, alt: brand.name })) : null;
+  const mark = brand ? el(onBrandClick ? 'button' : 'span', onBrandClick ? {
+    class: 'cv-brand cv-brand-link', type: 'button', title: `저장하고 ${brand.name} 홈으로`,
+    'aria-label': `${brand.name} 홈으로`, onClick: (e) => closeToHost(O, e.currentTarget),
+  } : { class: 'cv-brand', title: brand.name }, el('img', { src: brand.logo, alt: brand.name })) : null;
   const bar = el('header', { class: 'cv-bar' },
     el('span', { class: 'onba-editor-logo' }, onbatangLogo()),
     ...(mark ? [mark, el('span', { class: 'cv-bar-sep cv-brand-sep', 'aria-hidden': 'true' })] : []),
@@ -978,17 +982,24 @@ async function save(O) {
   return false;
 }
 /** 꾸미던 것을 저장하고 편집기를 치운다. 저장했으면 true. */
-async function leaveEditor(O) {
+async function leaveEditor(O, { requireSaved = false, waitForSync = false } = {}) {
   app.inert = true;                              // 나가는 동안에는 더 고치지 못하게 한다(그때 고친 것은 저장되지 않는다)
   if (O.putting) await O.putting;                // 저절로 걸린 저장이 아직 끝나지 않았으면 기다린다(끝난 뒤에 결과를 본다)
   let ok = await save(O);
   if (O.dirty) ok = await save(O);               // 저장하는 사이에 더 바뀐 것
+  if (requireSaved && (!ok || O.dirty || O.localOk === false)) {
+    app.inert = false;
+    return false;
+  }
   // 영상을 빼거나 바꿔서 이제 쓰지 않는 영상 파일을 이 기기에서 지운다(나가면 실행 취소로 되살릴 수 없다).
   // 지금 모습이 이 기기에 적힌 것이 확실할 때에만 지운다. 적히지 못했으면 예전 모습의 그림이 남아 있고,
   // 그 그림은 지우려던 영상을 아직 쓰고 있을 수 있다.
   if (ok && !O.dirty && O.localOk !== false) await tidyVideos(O.record.id, currentSlides(O));
   O.closed = true;
-  if (pusher) pusher.flush(O.record.id);         // 기다리던 계정 올리기를 바로 한다(끝나기를 기다리지는 않는다)
+  if (pusher) {
+    const uploading = pusher.flush(O.record.id);
+    if (waitForSync) await uploading;            // 바깥 화면으로 가면 이 앱이 닫히므로 올리기까지 기다린다
+  }
   clearTimeout(O.timer);
   clearTimeout(O.thumbTimer);
   closeModal();
@@ -1013,6 +1024,22 @@ async function tidyVideos(designId, slides, more = []) {
     for (const key of gone) dropScene(key);
   } catch (ex) {
     console.warn(ex);
+  }
+}
+async function closeToHost(O, btn) {
+  if (!onBrandClick || O.closed || O.leaving || moving || videoBusy(O)) return;
+  O.leaving = true;
+  btn.disabled = true;
+  try {
+    if (!await leaveEditor(O, { requireSaved: true, waitForSync: true })) {
+      toast('저장하지 못해 이동하지 않았어요. 그림을 내려받거나 저장 공간을 확인해주세요.', 5000);
+      return;
+    }
+    onBrandClick();
+  } finally {
+    O.leaving = false;
+    btn.disabled = false;
+    app.inert = false;
   }
 }
 async function closeDesign(O, btn = null) {
@@ -1323,14 +1350,16 @@ function flush() {
  * - storage: 이 기기의 저장소 이름(같은 주소에서 다른 앱과 섞이지 않게. 기본 'minican')
  * - onView(view): 화면이 바뀔 때('home' · 'edit') 알려 준다(들여 쓰는 곳이 둘레를 맞출 때 쓴다)
  * - brand: 들여 쓰는 곳의 표시 { name, logo }. 꾸미는 화면 위 막대 맨 앞에 작게 보인다(없으면 표시하지 않는다)
+ * - onBrandClick(): 표시를 누르면 기기 저장과 계정 올리기를 마친 뒤 부른다. 저장하지 못하면 이동하지 않는다
  * - sync: 계정 저장 { pull, push, drop }(sync.js). 주면 이 기기에 저장한 뒤 계정에도 올리고, 시작할 때 계정과 맞춘다
  */
-export function startMinican({ root = document.getElementById('app'), fonts = [], titleFont = '', storage = 'minican', onView: view = null, brand: mark = null, sync: account = null } = {}) {
+export function startMinican({ root = document.getElementById('app'), fonts = [], titleFont = '', storage = 'minican', onView: view = null, brand: mark = null, onBrandClick: hostHome = null, sync: account = null } = {}) {
   if (app) throw new Error('minican already started');
   if (!root) throw new Error('minican root');
   app = root;
   if (typeof view === 'function') onView = view;
   brand = cleanBrand(mark);
+  if (typeof hostHome === 'function') onBrandClick = hostHome;
   if (account && ['pull', 'push', 'drop'].every((k) => typeof account[k] === 'function')) {
     sync = account;
     pusher = createPusher(sync, { onDone: pushed });
