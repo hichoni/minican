@@ -2,6 +2,12 @@ minican
 Copyright (c) 2026 hichoni and minican contributors
 Licensed under the MIT License (see LICENSE).
 
+Product name from v0.9.0: 온바탕 (Onbatang), formerly 미니캔.
+app/brand/noto-sans-kr.woff2: Noto Sans KR, Copyright 2014–2021 Adobe.
+Source: https://github.com/notofonts/noto-cjk · SIL Open Font License 1.1, app/brand/OFL.txt.
+The bundled font is unmodified. Wordmark SVG outlines are generated from its weight 740 instance.
+The Onbatang geometric symbol and application branding are original project artwork, MIT licensed.
+
 이 저장소의 코드(src/*.js, src/minicanva.css, app/*)와 도형 그림·템플릿·주제 테마는 이 프로젝트에서 직접 만들었으며 MIT 라이선스를 따릅니다.
 그래픽(스티커)은 사용자의 기기에 들어 있는 이모지 글꼴로 그려지며, 이 저장소에 그림 파일로 들어 있지 않습니다.
 

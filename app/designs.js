@@ -181,7 +181,7 @@ export const isBlank = (record) => !(Array.isArray(record?.slides) && record.sli
  */
 export function fileName(now = new Date(), page = 0) {
   const p = (v) => String(v).padStart(2, '0');
-  const base = `minican-${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}`;
+  const base = `onbatang-${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}`;
   return page > 0 ? `${base}-${p(page)}` : base;
 }
 
