@@ -1,3 +1,5 @@
+> **이 저장소는 [hichoni/onbatang](https://github.com/hichoni/onbatang) 으로 옮겼어요.** 새 주소: https://hichoni.github.io/onbatang/ · 예전 주소(https://hichoni.github.io/minican/)로 들어와도 새 주소로 넘어가요. 앞으로의 고침과 이슈는 새 저장소에서 받아요.
+
 # 온바탕 — 생각을 펼치는 따뜻한 디자인 공간
 
 미니캔이 **온바탕**이라는 새 이름을 갖게 됐어요. 저장소도 `hichoni/onbatang` 으로 옮겼어요(예전 `hichoni/minican` 과 그 주소는 이곳으로 안내해요). 카드·포스터·발표 자료를 만드는 기능과 기존 그림은 그대로 이어집니다. 같은 `hichoni.github.io` 주소 안이라 학생 기기에 저장된 그림도 그대로 보여요. `startMinican` API 와 기기의 저장소 이름(`minican`)은 호환성을 위해 유지합니다.

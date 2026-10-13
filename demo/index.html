@@ -3,131 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>미니캔 시연</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8E%A8%3C/text%3E%3C/svg%3E">
-  <meta name="description" content="온바탕 편집기 모듈을 다른 것 없이 혼자 띄운 데모. 꾸민 것은 이 브라우저에만 저장돼요." />
-  <!-- 모듈의 스타일은 이 한 줄이면 된다 -->
-  <link rel="stylesheet" href="../src/editor.css" />
-  <style>
-    /* 여기부터는 이 데모 페이지의 꾸밈일 뿐, 모듈과는 상관없다. */
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; background: #f3f5fb; color: #1d2433; line-height: 1.5;
-      font-family: system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-      --fe-sticky-top: 8px;
-    }
-    .wrap { max-width: 1120px; margin: 0 auto; padding: 16px 16px 60px; }
-    header h1 { margin: 0; font-size: 1.6rem; }
-    header p { margin: 4px 0 0; color: #5a6376; }
-    .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; }
-    .bar a, .bar button {
-      padding: 7px 14px; border: 2px solid #dde2ef; border-radius: 999px; background: #fff; color: #26318f; font: inherit; font-weight: 700;
-      text-decoration: none; cursor: pointer;
-    }
-    .bar a.on { background: #3949c7; border-color: #3949c7; color: #fff; }
-    .bar .gap { flex: 1; }
-    #saved { color: #5a6376; font-size: .92rem; }
-    h2 { margin: 28px 0 8px; font-size: 1.2rem; }
-    .view { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 16px; align-items: start; }
-    #preview { box-shadow: 0 2px 10px rgba(29, 36, 51, .12); border-radius: 5%; }
-    pre { margin: 0; padding: 12px; max-height: 320px; overflow: auto; border-radius: 12px; background: #1d2433; color: #d0ebff; font-size: .8rem; white-space: pre-wrap; word-break: break-all; }
-    @media (max-width: 700px) { .view { grid-template-columns: minmax(0, 1fr); } }
-  </style>
+  <title>온바탕으로 옮겼어요</title>
+  <!-- 이 저장소(hichoni/minican)는 hichoni/onbatang 으로 옮겼어요. 예전 주소로 들어오면 같은 자리의 새 주소로 보낸다.
+       같은 hichoni.github.io 주소 안이라 이 기기에 저장된 그림은 새 주소에서도 그대로 보인다. -->
+  <meta http-equiv="refresh" content="0; url=https://hichoni.github.io/onbatang/demo/" />
+  <link rel="canonical" href="https://hichoni.github.io/onbatang/demo/" />
+  <script>location.replace(location.href.replace(/\/minican(\/|$)/, '/onbatang/'));</script>
 </head>
-<body>
-  <div class="wrap">
-    <header>
-      <h1>🎨 미니캔(minican) 시연</h1>
-      <p>작은 그림 꾸미기 편집기를 다른 것 없이 혼자 띄운 화면이에요. 꾸민 것은 이 브라우저에만 저장돼요(서버로 가지 않아요).</p>
-    </header>
-    <div class="bar">
-      <span>카드 비율</span>
-      <a href="?ratio=1:1" data-ratio="1:1">1:1</a>
-      <a href="?ratio=4:5" data-ratio="4:5">4:5</a>
-      <a href="?ratio=16:9" data-ratio="16:9">16:9</a>
-      <span class="gap"></span>
-      <span id="saved"></span>
-      <button id="reset" type="button">새로 만들기</button>
-    </div>
-
-    <!-- 편집기가 놓일 자리 -->
-    <main id="editor"></main>
-
-    <h2>보기 전용 (designView)</h2>
-    <div class="view">
-      <div id="preview"></div>
-      <pre id="json" aria-label="저장되는 값"></pre>
-    </div>
-  </div>
-
-  <script type="module">
-    // ① 가져오기: 이 폴더의 index.js 하나면 된다.
-    import { configure, createEditor, designView, registerFonts } from '../src/index.js';
-
-    // ② 설정: 카드 비율과 글꼴. 시연용 글꼴은 demo/fonts/ 의 OFL 글꼴(전문은 demo/fonts/OFL.txt)이다. 다른 프로젝트에서는 그 프로젝트의 글꼴 파일 주소를 적는다.
-    //    글꼴 파일이 없으면 기본 글꼴로 보일 뿐, 나머지는 그대로 된다.)
-    const ratioName = new URLSearchParams(location.search).get('ratio') || '1:1';
-    const [rw, rh] = ratioName.split(':').map(Number);
-    const fonts = [
-      { id: 'do-hyeon', name: '도현', url: './fonts/do-hyeon.ttf' },
-      { id: 'jua', name: '주아', url: './fonts/jua.ttf' },
-      { id: 'single-day', name: '싱글데이', url: './fonts/single-day.ttf' },
-    ];
-    configure({ aspect: rw > 0 && rh > 0 ? rw / rh : 1, fonts });
-    registerFonts(fonts);
-    for (const a of document.querySelectorAll('[data-ratio]')) a.classList.toggle('on', a.dataset.ratio === ratioName);
-
-    // ③ 저장: 이 데모는 브라우저(localStorage)에 둔다. 실제 프로젝트에서는 onChange 에서 서버로 보내면 된다.
-    const KEY = `onbatang.demo.${ratioName}`;
-    let design = null;
-    try { design = JSON.parse(localStorage.getItem(KEY)); } catch { /* 처음이면 없다 */ }
-
-    const preview = document.getElementById('preview');
-    const json = document.getElementById('json');
-    const saved = document.getElementById('saved');
-    function show(d) {
-      preview.replaceChildren(designView(d, { empty: '아직 비어 있어요' }));
-      json.textContent = JSON.stringify(d, (k, v) => (k === 'url' && v.length > 80 ? `${v.slice(0, 60)}… (${v.length}자)` : v), 1);
-    }
-    let timer = 0;
-    function save() {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        const d = editor.getDesign();
-        show(d);
-        try {
-          localStorage.setItem(KEY, JSON.stringify(d));
-          saved.textContent = '저장했어요';
-        } catch {
-          saved.textContent = '사진이 커서 저장하지 못했어요(브라우저 저장 공간이 꽉 찼어요)';
-        }
-      }, 300);
-    }
-
-    // 사진은 서버가 없으니 글자로 바꿔(data 주소) 디자인 안에 넣는다. 실제 프로젝트에서는 저장소에 올리고 그 주소를 돌려준다.
-    const toDataUrl = (blob) => new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-
-    // ④ 편집기 만들기 → 놓기
-    const editor = createEditor({
-      design,
-      onChange: save,
-      uploadImage: async ({ blob }) => ({ url: await toDataUrl(blob) }),
-    });
-    editor.mount(document.getElementById('editor'));
-    show(editor.getDesign());
-
-    document.getElementById('reset').addEventListener('click', () => {
-      localStorage.removeItem(KEY);
-      editor.setDesign({ items: [] });
-      show(editor.getDesign());
-      saved.textContent = '새로 시작했어요';
-    });
-    window.demoEditor = editor;      // 개발자 도구에서 눌러 보라고
-  </script>
+<body style="font-family: system-ui, sans-serif; padding: 24px;">
+  <p>온바탕이 새 주소로 옮겼어요. <a href="https://hichoni.github.io/onbatang/demo/">https://hichoni.github.io/onbatang/demo/</a></p>
 </body>
 </html>
