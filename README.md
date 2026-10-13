@@ -1,6 +1,6 @@
 # 온바탕 — 생각을 펼치는 따뜻한 디자인 공간
 
-미니캔이 **온바탕**이라는 새 이름을 갖게 됐어요. 카드·포스터·발표 자료를 만드는 기능과 기존 그림은 그대로 이어집니다. 저장소 이름, 공개 주소와 `startMinican` API는 호환성을 위해 유지합니다.
+미니캔이 **온바탕**이라는 새 이름을 갖게 됐어요. 저장소도 `hichoni/onbatang` 으로 옮겼어요(예전 `hichoni/minican` 과 그 주소는 이곳으로 안내해요). 카드·포스터·발표 자료를 만드는 기능과 기존 그림은 그대로 이어집니다. 같은 `hichoni.github.io` 주소 안이라 학생 기기에 저장된 그림도 그대로 보여요. `startMinican` API 와 기기의 저장소 이름(`minican`)은 호환성을 위해 유지합니다.
 
 브랜드: [로고·색·글꼴 사용 안내](./BRAND.md). 앱을 가져다 쓸 때 `app/app.css` 다음에 `app/brand.css`도 불러오세요.
 
@@ -26,7 +26,7 @@
 
 편집기(`src/`)만 쓰면 카드 한 장을 꾸미는 칸이 생겨요. `app/` 은 그 편집기를 감싼 **완성된 화면**이에요. 교실에서 바로 쓰는 미니캔이 이것이에요.
 
-**학생에게 나눠 줄 주소**: 이 저장소를 GitHub Pages 로 열면 `https://hichoni.github.io/minican/` 에서 바로 앱이 열려요(맨 위 `index.html` 이 `app/` 으로 보내 줘요). 켜는 법: 저장소 Settings → Pages → Source 를 **Deploy from a branch**, Branch 를 **main / (root)** 로 두고 Save. 글꼴은 `app/fonts/` 의 무료(OFL) 글꼴 15종을 써요(`app/fonts.js`).
+**학생에게 나눠 줄 주소**: 이 저장소를 GitHub Pages 로 열면 `https://hichoni.github.io/onbatang/` 에서 바로 앱이 열려요(맨 위 `index.html` 이 `app/` 으로 보내 줘요). 켜는 법: 저장소 Settings → Pages → Source 를 **Deploy from a branch**, Branch 를 **main / (root)** 로 두고 Save. 글꼴은 `app/fonts/` 의 무료(OFL) 글꼴 15종을 써요(`app/fonts.js`).
 
 - **첫 화면**: 소개 · 새 그림 만들기 · 템플릿으로 시작하기(주제 테마 9종: 인터넷 예절 · 디지털 디톡스 · AI와 정보 · 나의 꿈 · 책과 생각 · 미술 작품 · 따뜻한 교실 · 지구 지키기 · 우리 고장, 그리고 기본 짜임 6종) · 내 그림
 - **꾸미는 화면**: 왼쪽 도구 줄(틀 · 글 · 꾸미기 · 내 자료 · 바탕 영상 · 바탕색 · 겹 순서 · 움직임. 빈 장에는 바로 시작하는 단추) · 가운데 그림 · 아래 슬라이드 띠(새 장 · 복제 · 옮기기 · 지우기, 20장까지) · 위 막대(그림의 모양 정사각형 · 세로 · 가로 · 길게, 발표, 내려받기)
