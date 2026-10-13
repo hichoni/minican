@@ -195,6 +195,8 @@ body.mc-app #app[data-view="home"], body.mc-app #app[data-view="edit"] { max-wid
 .cv-bar .btn { gap: 6px; min-height: 40px; padding: 6px 14px; border-radius: var(--cv-r-m); white-space: nowrap; }
 .cv-bar .btn:focus-visible, .cv-shape:focus-visible, .cv-name:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 .btn.cv-back { padding-left: 8px; border-color: transparent; color: var(--text); }
+.cv-brand { display: flex; align-items: center; flex: none; padding: 0 2px 0 6px; }
+.cv-brand img { display: block; height: 22px; width: auto; max-width: 110px; object-fit: contain; }
 .btn.cv-back:hover:not(:disabled) { background: var(--soft); color: var(--primary-dark); }
 .cv-name {
   flex: 1 1 120px; width: 120px; min-width: 0; min-height: 40px; padding: 6px 10px; border: 1px solid transparent; border-radius: var(--cv-r-m); background: transparent;
@@ -517,6 +519,7 @@ body.mc-app .modal-panel { animation: cv-pop-in .22s cubic-bezier(.2, .7, .2, 1)
   /* 나가기와 발표는 작은 그림만 보인다(글은 화면 읽기 프로그램에 남는다). "저장 안 하고 나가기"로 바뀌었을 때는 글도 보인다. */
   .cv-back:not([data-armed="1"]) .cv-lbl, .cv-show-btn .cv-lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .btn.cv-back { padding: 6px 8px; }
+  .cv-brand, .cv-brand-sep { display: none; }
   .cv-slide-tool:not(.danger) .cv-lbl { display: none; }
   .cv-slide-tool { min-width: 40px; justify-content: center; }
 }

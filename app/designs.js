@@ -230,3 +230,15 @@ export function whenText(ms) {
 
 /** 사진 한 장의 한도(data 주소의 글자 수). 넘으면 setup.js 가 더 작게 줄인다(기기의 저장 공간을 아낀다). */
 export const PHOTO_MAX_CHARS = 1000000;
+
+/**
+ * 들여 쓰는 곳의 표시(이름과 로고 그림 주소)를 정리한다. 꾸미는 화면 위 막대 맨 앞에 작게 놓는다.
+ * 로고는 같은 곳의 상대 주소·https·그림 data 주소만 받는다. 아니면 표시하지 않는다(null).
+ */
+export function cleanBrand(raw) {
+  const name = typeof raw?.name === 'string' ? raw.name.trim() : '';
+  const logo = typeof raw?.logo === 'string' ? raw.logo.trim() : '';
+  if (!name || name.length > 40 || !logo || logo.length > 2000 || logo.startsWith('//')) return null;
+  if (!/^(?:https:\/\/|data:image\/(?:png|jpeg|webp|svg\+xml)[;,]|\.{0,2}\/|[a-z0-9_-]+\/)/i.test(logo) || /^[a-z][a-z0-9+.-]*:/i.test(logo) && !/^(?:https|data):/i.test(logo)) return null;
+  return { name, logo };
+}

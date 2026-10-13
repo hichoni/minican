@@ -1,6 +1,6 @@
 // 미니캔 앱: 내 그림들 → 새 그림 → 꾸미기(그림의 모양은 꾸미는 화면에서 언제든 바꾼다) → 그림·영상 파일로 내려받기.
 // 편집기는 모듈(src/)의 것을 그대로 쓴다. 그림은 이 기기(브라우저의 IndexedDB)에만 저장되고, 서버로는 아무것도 보내지 않는다.
-// 들여 쓰는 곳은 startMinican({ fonts, titleFont, storage, onView })로 시작한다(index.html 이 그 예다).
+// 들여 쓰는 곳은 startMinican({ fonts, titleFont, storage, onView, brand })로 시작한다(index.html 이 그 예다).
 // 화면의 짜임: 첫 화면(소개·새로 만들기 + 템플릿 + 내 그림)과 꾸미는 화면(위 막대 · 왼쪽 도구 줄과 옆 칸 · 가운데 그림 · 아래 슬라이드 띠).
 //             꾸미는 화면은 넓은 화면에서 창을 꽉 채우고(스크롤 없음), 좁은 화면에서는 위에서 아래로 쌓인다(app.css).
 import { el, toast, openModal, closeModal } from './ui.js';
@@ -15,7 +15,7 @@ import { createCamera, canRecord } from './camera.js';
 import {
   RATIOS, RATIO_KEY, MAX_DESIGNS, MAX_SLIDES, MAX_NAME, EXPORT_SIZES, DEFAULT_EXPORT, EXPORT_KEY, VIDEO_SIZES, DEFAULT_VIDEO, exportSize, ratioOf, newRecord, nextNumber,
   isBlank, fileName, whenText, sortRecords, addSlide, copySlide, removeSlide, moveSlide,
-  libraryOf, dropPhoto, slideMotion, slideVideo, slideExtra, hasVideo, deckVideos, unusedVideos,
+  libraryOf, dropPhoto, slideMotion, slideVideo, slideExtra, hasVideo, deckVideos, unusedVideos, cleanBrand,
 } from './designs.js';
 import { saveVideo, listVideos, removeVideos } from './videos.js';
 import { zipStore } from './zip.js';
@@ -24,6 +24,7 @@ import { setupCanva, useFonts, photoToData, BASIC_GROUP } from './setup.js';
 
 let app = null;
 let onView = () => {};
+let brand = null;                // 들여 쓰는 곳의 표시 { name, logo } (없으면 표시하지 않는다)
 const SAVE_DELAY = 500;       // 마지막으로 고친 뒤 이만큼 지나면 이 기기에 저장한다(ms)
 const S = {
   phase: 'boot',              // 'boot'(그림을 읽는 중) · 'home'
@@ -426,7 +427,9 @@ function openDesign(record, isNew) {
   }));
   O.shapes = shapes;
   // 위 막대: 나가기 · 이름 · 저장 상태 | 모양 · 발표 · 내려받기
+  const mark = brand ? el('span', { class: 'cv-brand', title: brand.name }, el('img', { src: brand.logo, alt: brand.name })) : null;
   const bar = el('header', { class: 'cv-bar' },
+    ...(mark ? [mark, el('span', { class: 'cv-bar-sep cv-brand-sep', 'aria-hidden': 'true' })] : []),
     el('button', { class: 'btn btn-ghost cv-back', type: 'button', title: '저장하고 내 그림으로 돌아가요', onClick: (e) => closeDesign(O, e.currentTarget) }, ...face('back', '내 그림')),
     el('span', { class: 'cv-bar-sep', 'aria-hidden': 'true' }),
     name, O.status, el('span', { class: 'cv-bar-gap' }), shapes, el('span', { class: 'cv-bar-sep', 'aria-hidden': 'true' }), show, down);
@@ -1230,12 +1233,14 @@ function flush() {
  * - fonts: 글꼴 목록 [{ id, name, desc?, url }] · titleFont: 템플릿의 큰 제목에 쓸 글꼴 id
  * - storage: 이 기기의 저장소 이름(같은 주소에서 다른 앱과 섞이지 않게. 기본 'minican')
  * - onView(view): 화면이 바뀔 때('home' · 'edit') 알려 준다(들여 쓰는 곳이 둘레를 맞출 때 쓴다)
+ * - brand: 들여 쓰는 곳의 표시 { name, logo }. 꾸미는 화면 위 막대 맨 앞에 작게 보인다(없으면 표시하지 않는다)
  */
-export function startMinican({ root = document.getElementById('app'), fonts = [], titleFont = '', storage = 'minican', onView: view = null } = {}) {
+export function startMinican({ root = document.getElementById('app'), fonts = [], titleFont = '', storage = 'minican', onView: view = null, brand: mark = null } = {}) {
   if (app) throw new Error('minican already started');
   if (!root) throw new Error('minican root');
   app = root;
   if (typeof view === 'function') onView = view;
+  brand = cleanBrand(mark);
   setStorageName(storage);
   useFonts(fonts, titleFont);
   setupCanva();
