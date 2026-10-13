@@ -227,6 +227,8 @@ export function cleanItem(item, { keepSpaces = false } = {}) {
   };
   // 이름표(id)는 있을 때만 남긴다: 여럿이 함께 꾸미는 프로젝트가 요소를 가려낼 때 쓴다(틴커랩 미니캔의 "함께 만드는 그림"). 혼자 쓰는 그림에는 없다.
   if (typeof it.id === 'string' && /^[a-z][a-z0-9]{5,31}$/.test(it.id)) base.id = it.id;
+  // 그룹(g): 같은 표를 단 요소들은 한 번에 고르고 함께 옮긴다(캔바의 "그룹"). 그룹으로 묶었을 때만 적는다.
+  if (typeof it.g === 'string' && GROUP_ID.test(it.g)) base.g = it.g;
   // 움직임(발표할 때)은 정했을 때만 적는다. an: 나타나는 효과(또는 'none' = 가만히) · aw: 누를 때 나타난다(motion.js).
   if (ENTER_IDS.includes(it.an) || it.an === STILL) base.an = it.an;
   if (it.aw === true) base.aw = true;
@@ -608,6 +610,52 @@ export function alignItem(item, where, hw = 0, hh = 0) {
   const x = where === 'left' ? hw : where === 'right' ? 100 - hw : where === 'center' ? 50 : item.x;
   const y = where === 'top' ? hh : where === 'bottom' ? 100 - hh : where === 'middle' ? 50 : item.y;
   return { ...item, x: num(x, 0, 100, item.x), y: num(y, 0, 100, item.y) };
+}
+
+// ---------- 그룹 ----------
+const GROUP_ID = /^g[a-z0-9]{3,15}$/;
+/** 새 그룹 표. */
+export function newGroupId(now = Date.now(), rand = Math.random()) {
+  return `g${now.toString(36).slice(-6)}${Math.floor(rand * 36 ** 4).toString(36).padStart(4, '0')}`;
+}
+/**
+ * 복제하거나 붙여 넣은 요소들의 그룹 표를 새것으로 바꾼다(원래 그룹과 섞이지 않게). 같은 표였던 것끼리는 새 표도 같다.
+ * 한 그룹에서 하나만 들어 있으면 그것은 그룹에서 뺀다(혼자인 그룹은 뜻이 없다).
+ */
+export function regroup(list, makeId = newGroupId) {
+  const counts = new Map();
+  for (const it of list) if (it?.g) counts.set(it.g, (counts.get(it.g) || 0) + 1);
+  const fresh = new Map();
+  return list.map((it) => {
+    if (!it?.g) return it;
+    const { g, ...rest } = it;
+    if (counts.get(g) < 2) return rest;
+    if (!fresh.has(g)) fresh.set(g, makeId(Date.now(), Math.random()));
+    return { ...rest, g: fresh.get(g) };
+  });
+}
+
+/**
+ * 여럿을 함께 키우고 줄인다(고른 것들을 감싸는 상자의 모서리 손잡이). (ax, ay): 그대로 있는 점(잡은 모서리의 맞은편 모서리).
+ * 모두 같은 배율이어야 모양이 흐트러지지 않으므로, 어느 하나라도 더 커지거나 작아질 수 없으면 배율을 그만큼 줄인다.
+ * 돌려주는 것: { items(받은 차례대로), k(실제로 쓴 배율) }
+ */
+export function scaleItems(items, k, ax, ay) {
+  let f = Number.isFinite(k) && k > 0 ? k : 1;
+  for (let pass = 0; pass < 2; pass++) {
+    for (const it of items) {
+      const real = it.w > 0 ? scaleItem(it, f).w / it.w : f;
+      if (f > 1 && real < f) f = Math.max(1, real);
+      if (f < 1 && real > f) f = Math.min(1, real);
+    }
+  }
+  return {
+    k: f,
+    items: items.map((it) => {
+      const sized = scaleItem(it, f);
+      return { ...sized, x: num(ax + (it.x - ax) * f, 0, 100, it.x), y: num(ay + (it.y - ay) * f, 0, 100, it.y) };
+    }),
+  };
 }
 
 /**

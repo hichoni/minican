@@ -184,3 +184,31 @@ test('모델 파일: 미니캔바 폴더 안에 있고 사용 조건이 적혀 �
   assert.match(seg, /onnxruntime-web@\$\{ORT_VERSION\}/);
   assert.match(seg, /ORT_VERSION = '\d+\.\d+\.\d+'/, '실행기는 고정 판으로 부른다');
 });
+
+test('얇은 것 살리기: 흐린 빨대로 이어진 장식은 지우지 않고 빨대를 잇는다 · 둘레의 흐린 띠와 떨어진 부스러기는 그대로', () => {
+  const w = 100, h = 100;
+  const make = () => new Float32Array(w * h);
+  const fill = (a, x0, y0, x1, y1, v) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) a[y * w + x] = v; };
+  const cup = make();
+  fill(cup, 20, 50, 80, 95, 0.95);       // 컵(단단함)
+  fill(cup, 48, 20, 51, 50, 0.3);        // 빨대(모델이 흐리게 본다)
+  fill(cup, 44, 12, 56, 20, 0.9);        // 빨대 끝 장식: 컵에 견주면 아주 작은 조각
+  const out = cleanAlpha(cup, w, h);
+  assert.ok(out[15 * w + 50] > 0.5, '장식이 남는다');
+  assert.ok(out[35 * w + 49] > 0.5, '빨대가 이어진다');
+  // 둘레의 흐린 띠(한 조각에만 닿는다)는 단단하게 바꾸지 않는다
+  const ring = make();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const d = Math.hypot(x - 50, y - 50); ring[y * w + x] = d < 20 ? 0.95 : d < 26 ? 0.3 : 0; }
+  assert.ok(Math.abs(cleanAlpha(ring, w, h)[50 * w + 73] - 0.3) < 1e-6);
+  // 흐린 길 없이 떨어진 작은 부스러기는 여전히 지운다
+  const speck = make();
+  fill(speck, 20, 30, 80, 90, 0.95);
+  fill(speck, 5, 5, 8, 8, 0.9);
+  assert.equal(cleanAlpha(speck, w, h)[6 * w + 6], 0);
+  // 넓은 흐린 곳(두 조각 사이의 큰 빈 곳)은 다리로 보지 않는다
+  const two = make();
+  fill(two, 5, 5, 30, 95, 0.95);
+  fill(two, 70, 5, 95, 95, 0.95);
+  fill(two, 30, 5, 70, 95, 0.3);
+  assert.ok(Math.abs(cleanAlpha(two, w, h)[50 * w + 50] - 0.3) < 1e-6);
+});

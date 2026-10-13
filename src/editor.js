@@ -8,7 +8,7 @@ import {
   COLORS, SHAPES, SHAPE_GROUPS, MASKS, OPACITY, TEXT_PRESETS, settings, configure, reshapeItems, backgroundOf, fontList, fontFamilyOf, layoutList,
   cleanBg, cleanItems, cleanDesign, emptyDesign, cleanItem, cleanImg, moveLayer, newPresetText, newEmoji, newShape, newPhoto, moveItem, scaleItem, widenItem, heightenItem, rotateItem,
   designMotion, reorder, duplicateItem, pasteItem, itemLabel, sizeOf, resizeTo, sizeRange, alignItem, coverItem, layoutItems, EDGE, canEdge, canRound, cornerOf, THICK, isLine, thickOf, thicken,
-  designVideo, cleanVideo, trimVideo, videoSeconds, videoTime, VIDEO_FITS, MIN_VIDEO, rebaseItems, alignBoxes, distributeBoxes, clampShift,
+  designVideo, cleanVideo, trimVideo, videoSeconds, videoTime, VIDEO_FITS, MIN_VIDEO, rebaseItems, alignBoxes, distributeBoxes, clampShift, scaleItems, regroup, newGroupId,
 } from './model.js';
 import { ENTERS, COMBOS, TRANSITIONS, STILL, planMotion, playEnter, playDesign, playTransition } from './motion.js';
 import { searchStickers } from './stickers.js';
@@ -143,7 +143,9 @@ export function createEditor({
   const othersBox = el('div', { class: 'fe-others', 'aria-hidden': 'true' });
   // 여럿을 골랐을 때: 하나하나의 가는 테두리(manyBox)와 모두를 감싸는 상자(groupBox). 빈 곳을 끌어 고를 때의 네모(marquee).
   const manyBox = el('div', { class: 'fe-many', 'aria-hidden': 'true' });
-  const groupBox = el('div', { class: 'fe-groupbox', hidden: true });
+  // 모두를 감싸는 상자의 네 모서리 손잡이: 끌면 고른 것들이 맞은편 모서리를 기준으로 함께 커지고 작아진다.
+  const groupHandle = (corner) => el('span', { class: `fe-h fe-scale ${corner}`, dataset: { h: 'gscale', corner }, title: '함께 크기 바꾸기' });
+  const groupBox = el('div', { class: 'fe-groupbox', hidden: true }, groupHandle('nw'), groupHandle('ne'), groupHandle('sw'), groupHandle('se'));
   const marquee = el('div', { class: 'fe-marquee', hidden: true });
   const overlay = el('div', { class: 'fe-overlay' }, othersBox, manyBox, guideV, guideH, selBox, groupBox, marquee, sceneFlag);
   const stage = el('div', {
@@ -164,6 +166,14 @@ export function createEditor({
   const chosen = () => (many.length ? many.slice() : sel >= 0 ? [sel] : []);
   // 여럿 고르기에 넣을 수 있는 것: 잠그지 않았고, 다른 사람이 고르고 있지 않은 것.
   const free = (i) => !!items()[i] && !items()[i].lock && !(lockedBy && lockedBy(items()[i]));
+  // 그 요소가 든 그룹의 모든 번호(그룹이 아니면 그것 하나). 그룹은 늘 통째로 고른다.
+  const groupOf = (i) => {
+    const g = items()[i]?.g;
+    return g ? items().map((it, k) => (it.g === g ? k : -1)).filter((k) => k >= 0) : [i];
+  };
+  const withGroups = (list) => [...new Set(list.flatMap(groupOf))];
+  // 고른 것이 꼭 한 그룹인지(그룹 해제 단추를 보일지).
+  const isGroup = () => many.length >= 2 && !!items()[many[0]]?.g && many.every((i) => items()[i].g === items()[many[0]].g) && groupOf(many[0]).length === many.length;
   const focusStage = () => stage.focus({ preventScroll: true });
 
   // ---------- 실행 취소 · 다시 실행 ----------
@@ -635,7 +645,7 @@ export function createEditor({
 
   // 여럿을 고른다(Shift 누르기 · 빈 곳을 끌어 고르기 · Ctrl+A). 둘보다 적으면 하나 고르기와 같다. 잠근 것은 빠진다.
   function selectMany(list) {
-    const pick = [...new Set(list)].filter(free).sort((a, b) => a - b);
+    const pick = withGroups(list).filter(free).sort((a, b) => a - b);
     if (pick.length < 2) { select(pick.length ? pick[0] : -1); return; }
     if (pick.length === many.length && pick.every((i, k) => many[k] === i)) return;
     endEdit();
@@ -655,7 +665,8 @@ export function createEditor({
   function toggleChosen(i) {
     if (!free(i)) { notify(items()[i]?.lock ? '잠근 요소는 함께 고를 수 없어요. 먼저 잠금을 풀어요.' : '친구가 고르고 있는 요소예요.', 3000); return; }
     const list = chosen().filter(free);
-    selectMany(list.includes(i) ? list.filter((k) => k !== i) : [...list, i]);
+    const group = groupOf(i);
+    selectMany(list.includes(i) ? list.filter((k) => !group.includes(k)) : [...list, ...group]);
   }
 
   // 고른 것을 새 값으로 바꾼다(자리·크기·투명도만 바뀔 때는 요소를 그대로 두고 옮긴다).
@@ -765,7 +776,7 @@ export function createEditor({
     endEdit();
     stopDrag();
     remember();
-    card.items = [...items(), { ...dup, lock: false }];
+    card.items = [...items(), regroup([{ ...dup, lock: false }])[0]];      // 하나만 복제한 것은 그룹에 들지 않는다
     listChanged(card.items.length - 1);
     focusStage();
   }
@@ -795,7 +806,34 @@ export function createEditor({
       made.push({ ...dup, lock: false });
       list = [...list, dup];
     }
-    addMany(made, failed ? fullNote(failed.t === 'image') : '');
+    addMany(regroup(made), failed ? fullNote(failed.t === 'image') : '');
+  }
+  // 고른 것들을 한 그룹으로 묶는다 · 그룹을 푼다(캔바의 그룹 · 그룹 해제).
+  function groupMany() {
+    if (many.length < 2 || isGroup()) return;
+    endEdit();
+    stopDrag();
+    remember();
+    const g = newGroupId();
+    const list = items().slice();
+    for (const i of many) list[i] = { ...list[i], g };
+    card.items = list;
+    renderUi();
+    onChange();
+    notify('그룹으로 묶었어요. 한 번 누르면 함께 골라지고, 한 번 더 누르면 하나만 골라져요.', 3500);
+    focusStage();
+  }
+  function ungroupMany() {
+    if (!isGroup()) return;
+    endEdit();
+    stopDrag();
+    remember();
+    const list = items().slice();
+    for (const i of many) { const { g, ...rest } = list[i]; list[i] = rest; }
+    card.items = list;
+    renderUi();
+    onChange();
+    focusStage();
   }
 
   // ---------- 복사 · 잘라내기 · 붙여넣기 ----------
@@ -824,8 +862,9 @@ export function createEditor({
       made.push(it);
       list = [...list, it];
     }
-    if (made.length === 1 && !failed) { add(made[0], { edit: false }); return; }
-    addMany(made, failed ? fullNote(failed.t === 'image') : '');
+    const fresh = regroup(made);                 // 붙여 넣은 것은 원래 그룹과 따로 묶인다
+    if (fresh.length === 1 && !failed) { add(fresh[0], { edit: false }); return; }
+    addMany(fresh, failed ? fullNote(failed.t === 'image') : '');
   }
   // 고른 것들을 함께 맨 앞(top) · 맨 뒤(bottom)로 보낸다. 고른 것끼리의 순서는 그대로다.
   function orderMany(to) {
@@ -930,7 +969,7 @@ export function createEditor({
           row('pageT', '위쪽 맞춤', '', () => arrangeMany('align', 'top')),
           row('pageM', '중간 맞춤', '', () => arrangeMany('align', 'middle')),
         ],
-        [row('lock', '모두 잠금', '', lockMany)],
+        [isGroup() ? row('ungroup', '그룹 해제', 'Ctrl+Shift+G', ungroupMany) : row('group', '그룹으로 묶기', 'Ctrl+G', groupMany), row('lock', '모두 잠금', '', lockMany)],
         [row('trash', `${many.length}개 삭제`, 'Delete', remove, { danger: true })],
       ];
     } else if (!it) {
@@ -1232,11 +1271,14 @@ export function createEditor({
     }
     const h = e.target.closest?.('.fe-h');
     const top = e.target.closest?.('.fi') ? itemAt(e.clientX, e.clientY, !!e.pointerType && e.pointerType !== 'mouse') : -1;
-    if (h && sel >= 0 && !cur().lock) start(h.dataset.h, e);
+    if (h && h.dataset.h === 'gscale' && many.length) startGroupScale(e, h.dataset.corner);
+    else if (h && sel >= 0 && !cur().lock) start(h.dataset.h, e);
     // Shift 를 누른 채 누르면 그 요소를 고른 것에 넣거나 뺀다. 빈 곳에서 끌면 고른 것에 더한다.
     else if (e.shiftKey && top >= 0 && !items()[top].lock) { e.preventDefault(); focusStage(); toggleChosen(top); }
     // 여럿 고른 것 가운데 하나를 잡으면 모두 함께 옮긴다(끌지 않고 떼면 그것 하나만 고른다).
     else if (many.length && many.includes(top)) startGroup(e, top);
+    // 그룹에 든 요소를 누르면 그룹 전체를 고르고, 끌면 함께 옮긴다(한 번 더 누르면 그것 하나만 고른다).
+    else if (top >= 0 && !e.shiftKey && groupOf(top).filter(free).length >= 2 && !(sel >= 0 && groupOf(sel).includes(top))) { selectMany(groupOf(top)); if (many.length) startGroup(e, undefined); }
     else if (top >= 0 && e.shiftKey) startMarquee(e, true);
     else if (top >= 0 && top !== sel && sel >= 0 && !cur().lock && document.elementsFromPoint(e.clientX, e.clientY).includes(nodes[sel])) {
       // 고른 것 위에 다른 것이 겹쳐 있을 때: 끌면 고른 것이 움직이고, 그냥 누르기만 하면 위에 있는 것을 고른다.
@@ -1266,8 +1308,23 @@ export function createEditor({
     Object.assign(marquee.style, { left: `${l - s.left}px`, top: `${t - s.top}px`, width: `${r - l}px`, height: `${b - t}px` });
     marquee.hidden = false;
     const hits = nodes.map((n, i) => [n.getBoundingClientRect(), i]).filter(([n, i]) => free(i) && n.right >= l && n.left <= r && n.bottom >= t && n.top <= b).map(([, i]) => i);
-    const pick = [...new Set([...drag.base, ...hits])].sort((a, c) => a - c);
+    const pick = withGroups([...drag.base, ...hits]).filter(free).sort((a, c) => a - c);
     if (pick.join() !== chosen().join()) setMany(pick);
+  }
+  // 모두를 감싸는 상자의 모서리를 잡고 함께 키우거나 줄이기 시작한다. 맞은편 모서리는 그 자리에 있다.
+  function startGroupScale(e, corner) {
+    e.preventDefault();
+    endEdit();
+    focusStage();
+    try { stage.setPointerCapture(e.pointerId); } catch { /* 잡지 못해도 계속한다 */ }
+    const s = stage.getBoundingClientRect();
+    const g = groupBox.getBoundingClientRect();
+    const ax = corner.includes('w') ? g.right : g.left;
+    const ay = corner.includes('n') ? g.bottom : g.top;
+    drag = {
+      mode: 'gscale', id: e.pointerId, px: e.clientX, py: e.clientY, idx: many.slice(), from: many.map((i) => items()[i]), moved: false,
+      ax, ay, at: [(ax - s.left) / (s.width || 1) * 100, (ay - s.top) / (s.height || 1) * 100], reach: Math.max(1, Math.hypot(e.clientX - ax, e.clientY - ay)),
+    };
   }
   // 여럿을 함께 옮기기 시작한다. tap: 끌지 않고 떼면 이것 하나만 고른다(캔바처럼).
   function startGroup(e, tap) {
@@ -1308,6 +1365,17 @@ export function createEditor({
       if (!drag.moved && Math.hypot(e.clientX - drag.px, e.clientY - drag.py) < 4) return;
       drag.moved = true;
       dragMarquee(e);
+      return;
+    }
+    if (drag.mode === 'gscale') {
+      if (!drag.moved) {
+        if (Math.hypot(e.clientX - drag.px, e.clientY - drag.py) < 3) return;
+        drag.moved = true;
+        remember();
+      }
+      const k = Math.max(0.05, Math.hypot(e.clientX - drag.ax, e.clientY - drag.ay) / drag.reach);
+      const made = scaleItems(drag.from, k, drag.at[0], drag.at[1]).items;
+      putMany(new Map(drag.idx.map((i, n) => [i, made[n]])));
       return;
     }
     if (drag.mode === 'group') {
@@ -1382,6 +1450,12 @@ export function createEditor({
   // 고른 텍스트를 두 번 누르면 글을 고친다. 끌기 때문에 포인터를 잡아 두어서 이 사건은 꾸미기 판에서 일어난 것으로 온다.
   // 그래서 누른 곳이 고른 글상자 안인지를 자리로 견준다.
   stage.addEventListener('dblclick', (e) => {
+    // 그룹(여럿 고른 것) 안의 글을 두 번 누르면 그 글 하나를 골라 고친다.
+    if (many.length) {
+      const at = itemAt(e.clientX, e.clientY);
+      if (at >= 0 && many.includes(at)) { select(at); if (items()[at].t === 'text') startEdit(); }
+      return;
+    }
     const it = cur();
     const box = nodes[sel]?.getBoundingClientRect();
     if (!it || it.t !== 'text' || !box) return;
@@ -1425,6 +1499,7 @@ export function createEditor({
       if (mod && key === 'KeyC') { e.preventDefault(); clipCopy(); }
       else if (mod && key === 'KeyX') { e.preventDefault(); clipCut(); }
       else if (mod && key === 'KeyD') { e.preventDefault(); copyMany(); }
+      else if (mod && key === 'KeyG') { e.preventDefault(); if (e.shiftKey) ungroupMany(); else groupMany(); }
       else if (arrows[e.key]) {
         e.preventDefault();
         const step = e.shiftKey ? 5 : 1;
@@ -1833,7 +1908,10 @@ export function createEditor({
       const group = (name, ...kids) => el('span', { class: 'fe-group', role: 'group', 'aria-label': name }, ...kids);
       bar.replaceChildren(...always,
         el('span', { class: 'fe-count', role: 'status' }, icon('selectAll'), `${many.length}개 고름`),
-        group('배치', pick('align', '정렬', 'malign', { title: '서로에게 맞춰 정렬하고 간격을 고르게' })),
+        group('배치', pick('align', '정렬', 'malign', { title: '서로에게 맞춰 정렬하고 간격을 고르게' }),
+          isGroup()
+            ? tb(lab('ungroup', '그룹 해제'), ungroupMany, { title: '그룹 해제 (Ctrl+Shift+G)', name: '그룹 해제', cls: 'grouping' })
+            : tb(lab('group', '그룹'), groupMany, { title: '그룹으로 묶기 (Ctrl+G): 한 번 누르면 함께 골라져요', name: '그룹으로 묶기', cls: 'grouping' })),
         el('span', { class: 'fe-sep' }),
         group('작업',
           tb(icon('duplicate'), copyMany, { title: '모두 복제 (Ctrl+D)', name: '모두 복제', cls: 'icon dup' }),

@@ -218,8 +218,12 @@ export function snapEdges(data, alpha, w, h, band = 3) {
 /**
  * 부스러기 치우기: 주인공(알파 ≥ 0.5)에서 떨어진 작은 조각은 지우고, 주인공 안의 작은 구멍은 메운다.
  * minPart: 가장 큰 조각의 이 비율보다 작은 조각은 지운다. hole: 사진 넓이의 이 비율보다 작은 구멍은 메운다.
+ * 얇은 것 살리기: 모델은 작은 그림(320×320)으로 보므로 빨대 · 끈 · 안테나처럼 가는 것은 흐리게(0.5 아래) 나온다.
+ *   - weak 이상의 흐린 길로 이어진 조각들은 한 덩어리로 본다(빨대 끝의 장식이 "떨어진 부스러기"로 지워지지 않게).
+ *   - 단단한 조각 둘 이상을 잇는 흐린 길(다리)이 작으면(사진 넓이의 bridge 비율보다 작으면) 단단하게 바꾼다.
+ *     주인공 둘레의 흐린 띠(한 조각에만 닿는다)나, 손잡이 안쪽처럼 넓은 빈 곳은 건드리지 않는다.
  */
-export function cleanAlpha(alpha, w, h, { minPart = 0.04, hole = 0.002 } = {}) {
+export function cleanAlpha(alpha, w, h, { minPart = 0.04, hole = 0.002, weak = 0.15, bridge = 0.01 } = {}) {
   const n = w * h;
   const out = new Float32Array(alpha);
   const label = new Int32Array(n).fill(-1);
@@ -247,14 +251,49 @@ export function cleanAlpha(alpha, w, h, { minPart = 0.04, hole = 0.002 } = {}) {
     const info = { id, ...flood(p, inside, id) };
     (inside ? parts : holes).push(info);
   }
-  const biggest = parts.reduce((m, c) => Math.max(m, c.size), 0);
-  const drop = new Set(parts.filter((c) => c.size < biggest * minPart).map((c) => c.id));
+  // 흐린 길(weak ≤ 알파 < 0.5)을 덩어리로 나누고, 그 길이 닿는 단단한 조각들을 모은다.
+  const isPart = new Uint8Array(parts.length + holes.length);
+  for (const c of parts) isPart[c.id] = 1;
+  const root = new Int32Array(parts.length + holes.length).map((_, i) => i);
+  const find = (i) => { while (root[i] !== i) { root[i] = root[root[i]]; i = root[i]; } return i; };
+  const weakLabel = new Int32Array(n).fill(-1);
+  const paths = [];
+  for (let p = 0; p < n; p++) {
+    if (weakLabel[p] !== -1 || alpha[p] >= 0.5 || alpha[p] < weak) continue;
+    const id = paths.length;
+    const touch = new Set();
+    let top = 0, size = 0;
+    stack[top++] = p; weakLabel[p] = id;
+    while (top) {
+      const q = stack[--top]; size++;
+      const x = q % w, y = (q - x) / w;
+      const look = (r) => {
+        if (alpha[r] >= 0.5) { touch.add(label[r]); return; }
+        if (weakLabel[r] === -1 && alpha[r] >= weak) { weakLabel[r] = id; stack[top++] = r; }
+      };
+      if (x > 0) look(q - 1);
+      if (x < w - 1) look(q + 1);
+      if (y > 0) look(q - w);
+      if (y < h - 1) look(q + w);
+    }
+    paths.push({ size, touch: [...touch].filter((t) => isPart[t]) });
+  }
+  // 흐린 길로 이어진 조각들은 한 덩어리: 덩어리의 크기로 "부스러기"인지 정한다.
+  for (const path of paths) for (let k = 1; k < path.touch.length; k++) root[find(path.touch[k])] = find(path.touch[0]);
+  const lump = new Map();
+  for (const c of parts) lump.set(find(c.id), (lump.get(find(c.id)) || 0) + c.size);
+  const biggest = Math.max(0, ...lump.values());
+  const drop = new Set(parts.filter((c) => lump.get(find(c.id)) < biggest * minPart).map((c) => c.id));
   const fill = new Set(holes.filter((c) => !c.border && c.size < n * hole).map((c) => c.id));
-  if (!drop.size && !fill.size) return out;
+  // 남는 조각 둘 이상을 잇는 작은 흐린 길은 다리: 단단하게 바꿔 끊기지 않게 한다.
+  const bridges = new Set();
+  paths.forEach((path, id) => { if (path.size < n * bridge && path.touch.filter((t) => !drop.has(t)).length >= 2) bridges.add(id); });
+  if (!drop.size && !fill.size && !bridges.size) return out;
   // 조각은 투명하게, 구멍은 불투명하게(가장자리의 부드러움은 다음 단계 alphaCurve 가 다시 만든다)
   for (let p = 0; p < n; p++) {
     if (drop.has(label[p])) out[p] = 0;
     else if (fill.has(label[p])) out[p] = 1;
+    if (weakLabel[p] !== -1 && bridges.has(weakLabel[p])) out[p] = Math.max(out[p], 0.85);
   }
   return out;
 }
