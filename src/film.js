@@ -1,0 +1,176 @@
+// minicanva 의 영상 시간표: 발표할 때의 움직임(motion.js)을 "몇 초에 무엇이 어떤 모습인지"로 바꾼다. DOM 을 쓰지 않는 순수 함수다.
+// 실제로 그림을 그리고 녹화하는 일은 video.js 가 한다.
+//
+// 발표는 사람이 눌러서 넘기지만 영상은 저절로 흘러가야 한다. 그래서 이렇게 정한다.
+//   - 한 장은 머무는 시간(stay. 초)만큼 보인다. 전환 효과가 있으면 그 효과가 끝난 때부터 센다.
+//   - 저절로 나오는 요소는 발표할 때와 같은 차례 · 같은 간격으로 나온다.
+//   - "누를 때" 나오는 요소는 읽는 차례대로 하나씩 저절로 나온다. 남은 시간에 고르게 나누되, 너무 급하거나 느리지 않게 한다.
+//   - 요소가 다 나온 뒤에도 읽을 틈(TAIL)은 남긴다. 그래서 요소가 많은 장은 머무는 시간보다 조금 길어진다.
+//   - 영상 장면(그 장의 바탕에 깐 영상)은 발표할 때처럼 그 장이 열리면(전환 효과가 끝나면) 틀기 시작해서, 쓰는 구간이 끝날 때까지 튼다.
+//     그래서 영상 장면이 있는 장은 적어도 그 영상의 길이만큼 이어진다. 끝난 뒤에는 마지막 모습에 잠깐 머문다.
+import { planMotion, enterPose, enterTime, transitionPose } from './motion.js';
+
+/** 고를 수 있는 머무는 시간(초)과 기본값. */
+export const STAYS = [3, 5, 8];
+export const DEFAULT_STAY = 5;
+
+const FIRST_LEAD = 300;      // 첫 장은 영상이 시작되고 이만큼 뒤에 요소가 나오기 시작한다(발표 화면과 같다)
+const TAIL = 1500;           // 마지막 요소가 다 나온 뒤에 적어도 이만큼은 더 보여 준다
+const STEP_MIN = 1200;       // "누를 때" 나오는 요소 사이의 간격: 가장 짧게
+const STEP_MAX = 2500;       //                                    가장 길게
+const CLICKS_MAX = 20000;    // 한 장에서 "누를 때" 요소들에 쓰는 시간의 한도(아주 많으면 간격을 줄인다)
+const STEP_LEAST = 400;
+const SCENE_TAIL = 500;      // 영상 장면이 끝난 뒤에 마지막 모습으로 이만큼 더 보여 준다
+/** 만들 수 있는 영상의 가장 긴 길이(초). 영상은 다 만들 때까지 메모리에 쌓이므로 한도를 둔다. */
+export const MAX_FILM_SECONDS = 600;
+
+const staySeconds = (stay) => (Number.isFinite(stay) ? Math.min(30, Math.max(1, stay)) : DEFAULT_STAY);
+
+/**
+ * 영상의 시간표를 짠다. designs: 정리된 디자인들(cleanDesign 을 거친 것. 장의 차례대로).
+ * 돌려주는 것: {
+ *   slides: [{
+ *     turn:   이 장이 들어올 때의 전환 효과 { id, ms }. 없으면 null(첫 장은 늘 없다)
+ *     lead:   요소가 나오기 시작하는 때(ms. 이 장이 시작된 때부터)
+ *     moves:  움직이는 요소들 [{ i(요소 번호), enter, mirror, start(시작하는 때), ms(길이), click(누를 때 나오던 것인지) }]
+ *     settle: 모든 요소가 다 나온 때
+ *     ms:     이 장의 길이(다음 장이 시작되는 때)
+ *     scene:  (영상 장면이 있는 장만) 바탕 영상을 트는 때 { start(트기 시작하는 때), ms(쓰는 구간의 길이) }
+ *   }],
+ *   ms: 영상 전체의 길이
+ * }
+ * scenes: 거짓이면 영상 장면을 틀지 않는 것으로 짠다(멈춘 그림으로 담을 때: 그 장도 다른 장처럼 머무는 시간만큼만 이어진다).
+ *         파일이 이 기기에 없는 영상 장면은 부르는 쪽이 디자인에서 미리 떼고 준다.
+ */
+export function filmPlan(designs, { stay = DEFAULT_STAY, scenes = true } = {}) {
+  const stayMs = staySeconds(stay) * 1000;
+  const slides = (Array.isArray(designs) ? designs : []).map((design, n) => {
+    const plan = planMotion(design);
+    const pose = n > 0 ? transitionPose(design?.tr) : null;
+    const turn = pose ? { id: design.tr, ms: pose.ms } : null;
+    const lead = turn ? turn.ms : n === 0 && plan.auto.length + plan.clicks.length ? FIRST_LEAD : 0;
+    const moves = plan.auto.map((a) => ({ i: a.i, enter: a.enter, mirror: a.mirror, start: lead + a.delay, ms: enterTime(a.enter), click: false }));
+    const count = plan.clicks.length;
+    if (count) {
+      const least = Math.max(STEP_LEAST, Math.min(STEP_MIN, CLICKS_MAX / count));
+      const step = Math.round(Math.max(least, Math.min(STEP_MAX, (stayMs - plan.ms - TAIL) / count)));
+      plan.clicks.forEach((c, k) => moves.push({ i: c.i, enter: c.enter, mirror: c.mirror, start: lead + plan.ms + step * (k + 1), ms: enterTime(c.enter), click: true }));
+    }
+    const settle = moves.reduce((m, v) => Math.max(m, v.start + v.ms), lead);
+    const video = scenes && design?.video && design.video.out > design.video.in ? design.video : null;
+    const scene = video ? { start: turn ? turn.ms : n === 0 ? FIRST_LEAD : 0, ms: Math.round((video.out - video.in) * 1000) } : null;
+    const ms = Math.round(Math.max(lead + Math.max(stayMs, settle - lead + (moves.length ? TAIL : 0)), scene ? scene.start + scene.ms + SCENE_TAIL : 0));
+    return { turn, lead, moves, settle, ms, ...(scene ? { scene } : {}) };
+  });
+  return { slides, ms: slides.reduce((sum, s) => sum + s.ms, 0) };
+}
+
+/**
+ * 그 장이 시작된 지 local(ms) 이 지났을 때, 아직 제 모습이 아닌 요소들의 모습.
+ * 돌려주는 것: Map(요소 번호 → enterPose 의 모습). 여기에 없는 요소는 제자리에 다 나와 있다.
+ */
+export function slidePoses(slide, local) {
+  const poses = new Map();
+  for (const m of slide?.moves || []) {
+    const at = local - m.start;
+    if (at >= m.ms) continue;
+    const pose = enterPose(m.enter, at, { mirror: m.mirror });
+    if (pose) poses.set(m.i, pose);
+  }
+  return poses;
+}
+
+/** 요소 그림들을 늘어놓는 큰 그림(sheet)의 한 변의 한도(px). */
+export const SHEET_MAX = 4096;
+const GUTTER = 2;                // 칸 사이의 틈(늘리거나 돌려 그릴 때 옆 칸이 묻어나지 않게)
+const HALF = SHEET_MAX / 2 - 8;  // 움직이는 요소의 칸은 그 요소의 가운데에서 이만큼까지만 담는다(한 칸이 큰 그림 한 장을 넘지 않게)
+
+/**
+ * 한 장의 요소들을 칸(cell)으로 나눈다(아래에 깔리는 것부터). 영상으로 만들 때 칸마다 따로 그려 두고 프레임마다 옮겨 붙인다.
+ *   - 움직이는 요소는 하나가 한 칸이다. 그 사이의 가만히 있는 요소들은 한 칸으로 묶는다(겹치는 차례가 그대로 남는다).
+ *   - 맨 아래 칸에는 카드의 바탕도 함께 그린다(bg). 움직이는 것이 없으면 통째로 한 칸이다.
+ *   - 영상 장면이 있는 디자인(design.video)은 맨 아래 칸에 바탕만 그린다: 그 위에 영상의 프레임을 그리고, 요소들은 그 위에 얹어야 하기 때문이다.
+ *     (그때는 가만히 있는 요소들도 제 칸에 그리므로, 움직이는 것이 없어도 boxes 가 있어야 한다.)
+ * - design: 정리된 디자인 · slide: 그 장의 시간표(filmPlan 의 slides[n]) · W · H: 카드의 크기(px)
+ * - boxes: 요소마다 화면에서 잰 자리 { x, y, w, h }(돌리고 뒤집은 뒤의 바깥 네모. px). 움직이는 것이 없으면 없어도 된다.
+ * 돌려주는 것: [{ items: [요소 번호…], bg, i(움직이는 요소의 번호. 묶음이면 -1), box: { x, y, w, h }(카드 위에서 잘라 낼 자리. 정수 px) }]
+ * 잴 수 없었던(크기가 0 인) 요소만 든 칸은 빠진다.
+ */
+export function filmCells(design, slide, boxes, W, H) {
+  const items = Array.isArray(design?.items) ? design.items : [];
+  const moving = new Set((slide?.moves || []).map((m) => m.i));
+  const card = { x: 0, y: 0, w: W, h: H };
+  const split = !!design?.video;
+  if (!moving.size && !split) return [{ items: items.map((_, i) => i), bg: true, i: -1, box: card }];
+  const cells = [];
+  let run = { items: [], bg: true, i: -1 };
+  const close = () => { if (run) cells.push(run); run = null; };
+  if (split) close();
+  items.forEach((it, i) => {
+    if (!moving.has(i)) {
+      run ||= { items: [], bg: false, i: -1 };
+      run.items.push(i);
+      return;
+    }
+    close();
+    cells.push({ items: [i], bg: false, i });
+  });
+  close();
+  const base = Math.ceil(Math.max(8, W * 0.02));
+  for (const c of cells) {
+    if (c.bg) { c.box = card; continue; }
+    let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
+    for (const i of c.items) {
+      const b = boxes?.[i];
+      if (!b || !(b.w > 0) || !(b.h > 0)) continue;
+      // 글자의 삐침 · 테두리처럼 칸 밖으로 조금 나온 것까지 담는다. 큰 글자는 삐침도 크다.
+      const it = items[i];
+      const pad = it?.t === 'text' ? Math.max(base, Math.ceil((it.size / 100) * W * 0.25)) : base;
+      x0 = Math.min(x0, b.x - pad); y0 = Math.min(y0, b.y - pad); x1 = Math.max(x1, b.x + b.w + pad); y1 = Math.max(y1, b.y + b.h + pad);
+    }
+    // 가만히 있는 묶음은 카드 안쪽만 담는다. 움직이는 요소는 카드 밖에 걸친 부분도 움직이다 보면 들어올 수 있어 통째로 담되,
+    // 가운데 점에서 너무 먼 곳은 뺀다(가운데를 붙들고 돌고 커지므로, 가운데를 기준으로 잘라야 한쪽만 잘리지 않는다).
+    const it = c.i >= 0 ? items[c.i] : null;
+    const cx = it ? (it.x / 100) * W : 0;
+    const cy = it ? (it.y / 100) * H : 0;
+    const lim = it ? { x0: cx - HALF, y0: cy - HALF, x1: cx + HALF, y1: cy + HALF } : { x0: 0, y0: 0, x1: W, y1: H };
+    x0 = Math.floor(Math.max(lim.x0, x0)); y0 = Math.floor(Math.max(lim.y0, y0));
+    x1 = Math.ceil(Math.min(lim.x1, x1)); y1 = Math.ceil(Math.min(lim.y1, y1));
+    c.box = x1 > x0 && y1 > y0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
+  }
+  return cells.filter((c) => c.box);
+}
+
+/**
+ * 칸들을 큰 그림(들)에 줄지어 놓는다. 한 장이 꽉 차면 다음 장을 연다.
+ * 칸마다 at({ x, y }: 큰 그림 위의 자리)과 sheet(몇 번째 큰 그림인지)를 적어 넣고, [{ width, height, cells }] 를 돌려준다.
+ */
+export function packCells(cells) {
+  const width = Math.min(SHEET_MAX, Math.max(2048, ...cells.map((c) => c.box.w)));
+  const sheets = [];
+  let cur = null; let x = 0; let y = 0; let row = 0;
+  const open = () => { cur = { width, height: 0, cells: [] }; sheets.push(cur); x = 0; y = 0; row = 0; };
+  open();
+  for (const c of cells) {
+    if (x > 0 && x + c.box.w > width) { x = 0; y += row + GUTTER; row = 0; }
+    if (y > 0 && y + c.box.h > SHEET_MAX) open();
+    c.at = { x, y };
+    c.sheet = sheets.length - 1;
+    cur.cells.push(c);
+    cur.height = Math.max(cur.height, y + c.box.h);
+    x += c.box.w + GUTTER;
+    row = Math.max(row, c.box.h);
+  }
+  return sheets;
+}
+
+/**
+ * 영상의 크기(px). aspect: 가로 ÷ 세로, short: 짧은 쪽의 길이.
+ * 영상은 가로·세로가 짝수여야 어디서나 잘 틀어지므로 짝수로 맞춘다.
+ */
+export function videoSize(aspect, short = 1080) {
+  const a = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+  const even = (v) => Math.max(2, Math.round(v / 2) * 2);
+  const s = even(short);
+  return a >= 1 ? { width: even(s * a), height: s } : { width: s, height: even(s / a) };
+}

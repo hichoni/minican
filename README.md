@@ -1,0 +1,478 @@
+# minican (미니캔) — 작은 그림 꾸미기 편집기
+
+> 교실에서 학생들이 카드뉴스·포스터·발표 그림을 꾸미도록 만든 편집기를 누구나 가져다 쓰고 함께 고칠 수 있게 공개한 저장소예요. [MIT 라이선스](./LICENSE) · 함께 만들기는 [CONTRIBUTING.md](./CONTRIBUTING.md) · 바깥 자원의 출처는 [NOTICE](./NOTICE).
+>
+> 저장소 구성: `src/` 편집기(이 폴더만 옮기면 돼요) · `src/models/` 배경 제거 모델 · `demo/` 시연 화면과 OFL 글꼴 · `tests/` 점검(`npm test`, Node.js 22 이상).
+
+카드 한 장 위에 **텍스트 · 그래픽(이모지) · 도형 · 사진**을 놓고 끌어서 꾸미는 편집기예요.
+디자인 도구의 기본 쓰임새(옆 메뉴에서 넣기 → 카드에서 고르고 끌기 → 도구 막대에서 꾸미기)를 작게 옮겨 놓았어요.
+
+- **이 폴더만 옮기면 돼요.** 바깥 라이브러리도, 빌드도 없어요(브라우저의 ES 모듈 그대로).
+- **저장소를 몰라요.** 디자인을 어디에 저장할지, 사진을 어디에 올릴지는 쓰는 프로젝트가 정해요.
+- 바로 눌러 보기: 저장소 맨 위에서 `npm run serve` 를 켜고 `http://localhost:5173/demo/` 를 열어요([`demo/index.html`](./demo/index.html)). ES 모듈이라 파일을 바로 열면 안 되고 웹 서버로 열어야 해요.
+
+들어 있는 기능: 템플릿 6가지, 제목·부제목·본문 넣기, 카드 위에서 바로 글 고치기, 글꼴·크기·색·굵게·기울임·밑줄·정렬·바탕색,
+그래픽 찾기, 도형·화살표·말풍선·꾸밈·그림 요소 77가지(일곱 묶음)와 그 채우기·테두리·모서리 둥글기, 사진 올리기(자동으로 줄임)·배경 제거·테두리 모양·배경으로 깔기, 크기·돌리기·뒤집기·투명도·잠금,
+맨 앞으로/맨 뒤로·페이지에 맞춰 정렬, 복사·잘라내기·붙여넣기·복제, 오른쪽 누르기(터치는 길게 누르기) 메뉴,
+실행 취소·다시 실행, 가운데 맞춤 안내선, 키보드(화살표·Delete·Ctrl+Z/Y/C/X/V/D), 터치.
+
+## 1. 옮기기
+
+1. `src/` 폴더를 새 프로젝트의 정적 파일 자리에 `minican/` 이라는 이름으로 통째로 복사해요(아래 예시는 그 이름을 써요. 이름은 바꿔도 돼요).
+2. 쓰는 화면에 스타일을 넣어요. **편집 화면뿐 아니라 디자인을 보여 주기만 하는 화면에도** 넣어야 해요.
+
+```html
+<link rel="stylesheet" href="./minican/minicanva.css" />
+```
+
+`file://` 로 열면 모듈을 못 읽어요. `python -m http.server` 같은 작은 서버로 열어요.
+
+## 2. 가장 짧은 쓰임
+
+```html
+<main id="editor"></main>
+<script type="module">
+  import { createEditor } from './minican/index.js';
+
+  const saved = JSON.parse(localStorage.getItem('my-design') || 'null');
+  const editor = createEditor({
+    design: saved,                                             // 없으면 빈 디자인으로 시작
+    onChange: () => localStorage.setItem('my-design', JSON.stringify(editor.getDesign())),
+  });
+  editor.mount(document.getElementById('editor'));            // 기본 짜임으로 놓기
+</script>
+```
+
+보여 주기만 할 때(갤러리, 미리보기):
+
+```js
+import { designView } from './minican/index.js';
+box.append(designView(design, { empty: '아직 비어 있어요' }));   // 놓인 칸의 너비에 맞춰 커지고 작아져요
+```
+
+그림 파일로 만들 때(내려받기, 다른 곳에 붙이기):
+
+```js
+import { designToBlob } from './minican/index.js';
+const { blob, ext, width, height } = await designToBlob(design, { width: 1080 });        // PNG
+const small = await designToBlob(design, { width: 800, type: 'image/jpeg', quality: 0.85 });
+```
+
+- 편집 화면에서 보던 그대로(줄 바꿈·글꼴·도형) 나와요. 높이는 `configure` 의 비율을 따르고, `aspect` 로 따로 줄 수도 있어요.
+- 글꼴 파일과 사진을 그림 안에 넣어야 해서, 글꼴은 `configure({ fonts })` 에 `url` 이 있어야 하고 사진은 받아 올 수 있는 주소여야 해요(못 받은 사진은 빠져요).
+- 최신 크롬·엣지에서 돼요. 사파리는 이렇게 그린 것을 파일로 꺼내지 못하게 막을 수 있어요(그때는 오류를 던져요).
+
+## 3. 프로젝트에 맞추기 — `configure()`
+
+화면을 그리기 **전에** 한 번 불러요. 준 것만 바뀌어요. 설정은 페이지에 하나예요(한 페이지의 편집기와 보기 화면이 모두 같은 설정을 써요).
+
+```js
+import { configure, registerFonts } from './minican/index.js';
+
+const fonts = [
+  { id: 'jua', name: '주아', url: './fonts/jua.ttf' },
+  { id: 'do-hyeon', name: '도현', url: './fonts/do-hyeon.ttf' },
+];
+configure({ aspect: 16 / 9, fonts, maxPhotos: 5 });
+registerFonts(fonts);          // 글꼴 파일을 브라우저에 알려요(실제로 쓸 때에만 파일을 받아요)
+```
+
+| 옵션 | 기본값 | 뜻 |
+| --- | --- | --- |
+| `aspect` | `1` | 카드의 가로 ÷ 세로. 16:9 는 `16 / 9`, 세로 4:5 는 `0.8` (0.25–4) |
+| `fonts` | 기본 글꼴 하나 | `[{ id, name, desc?, url?, family?, special? }]`. 기본 글꼴 뒤에 붙어요. `family` 를 안 주면 `mc-<id>` 라는 이름을 써요 |
+| `fontAliases` | `{}` | `{ 옛 id: 새 id }`. 글꼴 id 를 바꿨을 때 예전 디자인을 이어 줘요 |
+| `cleanImage(img)` | https · blob · 그림 data 주소 | 사진 정보 `{ url, path? }` 를 살펴, 믿을 수 있으면 `{ url, path? }` 를, 아니면 `null` 을 돌려줘요(아래 6번) |
+| `backgrounds` | 8가지 | `[{ id, name, bg, ink, accent? }]` 배경 색 목록 |
+| `layouts` | 6가지 | 템플릿 목록. `model.js` 의 `LAYOUTS` 와 같은 모양. `items` 는 목록 대신 함수여도 돼요: `items(aspect)` 가 그 비율에 맞는 요소들을 돌려줘요(정사각형과 가로로 긴 카드의 배치를 달리할 때. 템플릿 함수로 그렇게 할 수 있어요). 템플릿에 `group`(묶음 이름)을 적으면 템플릿 칸이 묶음별로 나뉘고, 지금 카드의 배경과 같은 `bg` 를 쓰는 묶음이 맨 위에 와요. 그 밖의 값(예: `cover` · `ratio`)은 모듈이 쓰지 않으니 프로젝트가 자유롭게 적어도 돼요 |
+| `maxItems` / `maxPhotos` / `maxText` | 24 / 3 / 120 | 카드 한 장의 요소 수, 사진 수, 글상자 하나의 글자 수 |
+| `maxUploads` | 0 | 올린 파일 목록에 둘 수 있는 파일 수. 0 이면 목록을 쓰지 않아요(올리면 카드에 놓이기만 해요). 1 이상이면 업로드 칸에 올린 파일들이 나와요(아래 "올린 파일 목록") |
+| `motion` | `false` | 참이면 움직임(애니메이션)을 고르는 칸이 나와요: 옆 메뉴의 **움직임** 칸(고른 요소의 효과 · 조합 효과 · 전환 효과). 움직임을 트는 화면이 있는 프로젝트만 켜세요(아래 "움직임") |
+| `photoEdge` | 800 | 넣는 사진을 줄일 때의 긴 쪽(px). 크게 내보낼 프로젝트는 키워요(사진 파일이 커져요). 배경 제거는 늘 800 에서 해요 |
+| `loadVideo(src)` | `null` | 영상 장면의 파일(Blob)을 돌려줘요(`async` 가능. 없으면 `null`). 영상 장면을 쓰는 프로젝트만 줘요(아래 "영상 장면") |
+
+카드 비율을 바꿔도 저장된 디자인은 그대로 읽혀요(자리와 크기를 카드에 대한 백분율로 적기 때문). 다만 도형·사진의 높이는
+"세로에 대한 백분율"이라, 이미 만든 디자인을 다른 비율로 그냥 열면 도형이 납작하거나 길쭉해 보여요.
+**꾸미는 중에 비율을 바꾸려면 `editor.setAspect(가로 ÷ 세로, { fit })` 를 써요.** 놓아 둔 요소를 새 비율에 맞춰 줘요(`model.js` 의 `reshapeItems`).
+
+- `fit: false`(기본) — 요소의 크기는 그대로, 자리는 같은 비율의 자리로. 도형·사진은 찌그러지지 않게 높이만 맞춰요.
+- `fit: true` — 지금 그림을 통째로 줄여서 새 비율 안의 가운데에 놓아요(요소끼리의 자리·크기 관계가 그대로예요).
+- 어느 쪽이든 카드에 깔아 둔 사진은 다시 꽉 채워요. 실행 취소로 비율까지 되돌아가고, 그때 `onAspect(aspect)` 로 알려 줘요.
+- 어떤 비율로 만들었는지는 프로젝트가 디자인과 함께 저장해 두세요. 둘 중 무엇으로 할지 묻는 화면도 프로젝트의 몫이에요(예: 두 결과를 미리 그려서 물어볼 수 있어요).
+
+## 4. 편집기 — `createEditor(options)`
+
+| 옵션 | 뜻 |
+| --- | --- |
+| `design` | 처음에 꾸밀 디자인 `{ bg, items }`. 편집기는 **이 객체의 `bg` 와 `items` 를 그 자리에서 바꿔요** |
+| `onChange()` | 디자인이 바뀔 때마다 불러요. 저장은 여기서(자주 불리니 0.3–0.5초 모아서 저장하세요) |
+| `uploadImage({ blob, ext, type, ratio })` | 사진을 저장하고 `{ url, path? }` 를 돌려줘요(`async` 가능). 편집기가 긴 쪽 800px 로 줄여서 넘겨줘요. 안 주면 새로 고침하면 사라지는 임시 주소(`blob:`)를 써요 |
+| `loadImageBlob(item)` | 저장된 사진의 파일 내용(Blob)을 돌려줘요(배경 제거용). 안 주면 `fetch(item.url)` 로 받아요 |
+| `fonts()` | 지금 고를 수 있는 글꼴 목록을 돌려줘요(안 주면 `configure` 에 준 전부) |
+| `notify(message, ms)` | 알림을 보여 줘요(안 주면 화면 아래의 작은 알림) |
+| `onAspect(aspect)` | 실행 취소·다시 실행으로 카드의 비율이 되돌아갔을 때 알려 줘요(`setAspect` 로 비율을 바꾸는 프로젝트만) |
+| `saveVideo({ blob, type, seconds, width, height })` | 영상 파일을 저장하고 **열쇠(글)**를 돌려줘요(`async` 가능). 저장하지 못하면 오류를 내세요: 편집기가 영상을 넣지 않고 알려요. 주면 옆 메뉴에 **영상** 칸이 나와요(아래 "영상 장면") |
+| `createCamera()` | 카메라를 만들어 돌려줘요(주면 "카메라로 찍기"가 나와요). `minicut/camera.js` 의 `createCamera` 와 같은 모양이면 돼요 |
+| `videoLimits` | `{ maxSeconds: 60, maxFileSeconds: 300, maxBytes: 200MB }` — 한 번에 찍는 길이, 골라 넣는 파일의 길이와 크기 |
+| `videoNote` | 영상 칸에 적을 안내 글(영상 파일이 어디에 저장되는지처럼 프로젝트마다 다른 것) |
+| `videoHint` | 깔아 둔 영상이 어디에서 틀어지는지 알려 주는 글. 비우면 "발표에서 소리와 함께 틀어져요. 그림으로 내려받으면 첫 모습이 나와요."(영상 파일로 만드는 기능까지 둔 프로젝트는 그것도 적어요) |
+| `onSelect(id)` | 고른 요소가 바뀔 때 그 요소의 이름표(`id`, 없으면 `''`)를 알려 줘요. 여럿이 함께 꾸밀 때 "누가 무엇을 고르고 있는지" 나누는 데 써요 |
+| `lockedBy(item)` | 그 요소를 다른 사람이 고르고 있으면 그 사람의 이름, 아니면 `''`. 이름이 오면 그 요소를 고를 수 없고 "○○ 친구가 고르고 있어요"라고 알려요 |
+
+돌려주는 것:
+
+| | |
+| --- | --- |
+| `mount(host)` | 기본 짜임으로 `host` 안에 놓아요(넓으면 도구 막대가 위, 그 아래 카드와 옆 메뉴 / 좁으면 카드 → 도구 막대 → 옆 메뉴) |
+| `stage` · `toolbar` · `panel` | 화면 조각 셋. 프로젝트의 짜임에 맞춰 따로 놓을 때 써요 |
+| `getDesign()` | 지금 디자인의 정리된 사본. **저장할 때는 이것을 써요** |
+| `getUploads()` / `setUploads(list)` | 올린 파일 목록 `[{ url, path? }]` 을 꺼내고 바꿔 끼워요(`maxUploads` 를 켰을 때) |
+| `setDesign(design)` | 꾸밀 디자인을 바꿔요(다른 쪽·다른 카드로 넘어갈 때). 고르기와 되돌리기 기록은 비워져요 |
+| `setAspect(aspect, { fit })` | 카드의 모양(가로 ÷ 세로)을 바꿔요. `fit` 이 참이면 그림을 통째로 줄여 맞추고, 아니면 요소의 크기를 그대로 둬요. 실행 취소로 되돌아가요 |
+| `refresh()` | 밖에서 디자인을 바꿨을 때 다시 그려요 |
+| `refreshFonts()` | `fonts()` 가 돌려주는 목록이 바뀌었을 때 불러요 |
+| `forget()` | 되돌리기 기록을 비워요(예: 안 쓰는 사진 파일을 지운 뒤) |
+| `busy()` | 영상을 찍거나 넣는 중이면 `'recording'` · `'saving'` · `'filing'`, 아니면 `''`. 그동안 `setDesign()` 이나 `destroy()` 를 부르면 찍던 것이 사라지니, 장을 바꾸거나 나가기 전에 이것을 보고 미루세요 |
+| `quiet()` | 틀어 보던 영상을 멈추고, 찍는 중이 아니면 카메라를 꺼요. 발표 화면이나 큰 창을 띄우기 전에 불러요 |
+| `destroy()` | 편집기를 치워요 |
+| `merge(design, patch)` | **여럿이 함께 꾸밀 때.** 다른 사람이 바꾼 것을 끼워 넣어요. 되돌리기 기록에 남기지 않고 `onChange` 도 부르지 않아요. 고른 요소는 이름표로 다시 찾아 그대로 두고, 글을 고치는 중이면 그 글상자는 그대로 둬요. `patch`(`{ items: Map(이름표 → 새 요소 또는 null), added: Set, order, bg?, pa?, tr? }`)는 되돌리기 기록에도 끼워 넣어서, 실행 취소가 내가 한 것만 되돌려요(`model.js` 의 `rebaseItems`) |
+| `idle()` | 지금 `merge()` 해도 되는지(끄는 중 · 레이어를 끄는 중 · 메뉴가 열린 중이면 `false`). `false` 면 조금 뒤에 다시 보세요 |
+| `markOthers(list)` | 다른 사람이 고른 요소들 `[{ id, name, color }]` 에 그 사람의 색 테두리와 이름을 둘러요(빈 목록이면 지워요) |
+| `selectedId()` | 지금 고른 요소의 이름표(없으면 `''`). 막 넣은 요소에 `onChange` 에서 이름표를 붙였을 때 다시 보는 데 써요 |
+
+### 조각을 따로 놓을 때 꼭 지킬 것
+
+**도구 막대가 카드를 밀어내면 안 돼요.** 요소를 고르면 도구 막대의 내용과 높이가 바뀌는데, 그때 카드가 움직이면
+두 번 누르기와 끌기가 어긋나요. 그래서
+
+- 넓은 화면: 도구 막대를 카드 **위에 한 줄로** 두고, 펼쳐지는 칸(`.fe-pop`)은 떠 있게 둬요(861px 부터 저절로 그래요).
+  두 줄이 될 수 있는 너비에서는 `.fe-bar` 에 `min-height` 로 자리를 미리 잡아 둬요.
+- 좁은 화면: 도구 막대를 카드 **아래에** 둬요.
+
+`mount()` 는 이대로 해 줘요. 머리말이 화면 위에 붙어 있는 프로젝트라면 `--fe-sticky-top` 에 그 높이를 주세요.
+직접 짠 화면에서 옆 메뉴가 페이지와 함께 길게 스크롤된다면, 위에 붙어 있는 띠(머리말 + 도구 막대)가 차지하는 높이를 `--fe-scroll-top` 에 주세요. 템플릿을 넣은 뒤 카드와 옆 메뉴를 보이는 곳으로 데려올 때 그 띠 아래에 오게 해요.
+
+### 올린 파일 목록(미리캔버스·캔바의 업로드 칸처럼)
+
+`configure({ maxUploads: 20 })` 처럼 켜면 업로드 칸에 올린 파일들이 남아요. 누르면 카드에 놓이고, 휴지통으로 지워요(한 번 더 물어요).
+편집기는 저장소를 몰라요. 목록을 디자인과 함께 저장했다가 다시 주는 것은 프로젝트의 몫이에요.
+
+```js
+const editor = createEditor({
+  design, uploads: saved.uploads,            // [{ url, path? }] 또는 주소들. 카드에 놓인 사진은 저절로 목록에 들어가요
+  onChange: () => save({ design: editor.getDesign(), uploads: editor.getUploads() }),
+  // 카드가 여러 장인 프로젝트만: 다른 카드에서 그 사진을 쓴 곳의 수 · 지웠을 때 다른 카드에서도 지우기
+  usedElsewhere: (url) => countInOtherCards(url),
+  onRemoveUpload: (img) => removeFromOtherCards(img.url),
+});
+```
+
+- 같은 주소의 파일은 하나로 쳐요. 여러 장을 한꺼번에 골라 올릴 수 있고, 목록이 꽉 차면 올리지 않고 알려 줘요.
+- 카드에 사진이 `maxPhotos` 장이면 올린 파일은 목록에만 들어가요.
+- 배경을 지워 새로 생긴 사진도 목록에 들어가요(카드에 놓인 사진은 늘 목록에 있어요).
+- 파일을 지우면 이 카드에서 쓴 것도 함께 지워요(실행 취소로 되살아나요). 저장소의 파일을 지우는 것은 `onRemoveUpload` 에서 하세요.
+
+### 움직임(애니메이션)
+
+`configure({ motion: true })` 를 하면 편집기에서 움직임을 고를 수 있어요. 편집기는 값을 적고 미리 보여 주기만 하고, **실제로 트는 것은 프로젝트의 몫**이에요(발표 화면 같은 곳).
+
+- 디자인에 적히는 값(정했을 때만 적혀요): 요소의 `an`(나타나는 효과. `'none'` 이면 가만히) · `aw`(`true` 면 누를 때 나타남), 디자인의 `pa`(조합 효과) · `tr`(이 장이 넘어올 때의 전환 효과).
+  `cleanDesign` 이 모르는 이름을 버려요. 디자인을 `{ bg, items }` 로 새로 짜 맞추는 곳에서는 `...designMotion(design)` 을 함께 펼쳐 넣어야 `pa` · `tr` 이 따라가요.
+- 트는 법(`motion.js`):
+
+```js
+import { designView, cleanDesign, playDesign, playTransition } from './minican/index.js';
+
+const design = cleanDesign(saved, { keepSpaces: true });   // 그리는 것과 움직임이 같은 요소를 가리키게, 정리한 것 하나로
+const view = designView(design);
+stage.append(view);                                        // 앞 장(old)과 같은 자리에 겹쳐 놓아요
+const turn = playTransition(old, view, design.tr, 1);      // { ms, finish(), done } — 효과가 없으면 ms 가 0
+turn.done.then(() => old.remove());
+const parts = playDesign(view, design, { delay: turn.ms });
+// 넘길 때: parts.finish() 로 틀던 것을 끝내고, parts.next() 가 true 면(누를 때 나오는 것을 하나 보여 줬으면) 그 장에 머물러요.
+```
+
+- 요소는 Web Animations 로 움직이고 끝나면 흔적이 남지 않아요. 그래서 `designView` · `designToBlob` 의 결과는 늘 다 나온 모습이에요.
+- 기기에서 "움직임 줄이기"를 켜 두면 아무것도 틀지 않아요(`playDesign` 의 `next()` 는 그대로 하나씩 보여 줘요).
+- 여러 장을 다루는 프로젝트는 `createEditor({ onMotionAll })` 을 주면 움직임 칸에 "모든 장에 똑같이" 단추가 생겨요.
+- 움직임 칸 아래의 안내 글은 `configure({ motionNote: '…' })` 로 바꿔요(움직임이 어디에서 보이는지는 프로젝트마다 달라요. 비우면 "발표를 누르면 보여요 …").
+- 효과를 더하려면 `motion.js` 의 `ENTER_DEFS` · `COMBO_DEFS` · `TRANSITION_DEFS` 에 한 줄을 더해요. **이미 있는 id 는 바꾸지 마세요**(저장된 디자인이 그 이름으로 적혀 있어요).
+
+### 영상 장면(장의 바탕에 까는 영상)
+
+`createEditor({ saveVideo })` 를 주면 옆 메뉴(업로드 다음)에 **영상** 칸이 나와요. 그 장의 **바탕에 영상**을 깔고(한 장에 하나), 그 위에 요소를 올려요.
+
+- **영상 파일은 디자인에 들어가지 않아요.** 디자인에는 `video: { src, dur, in, out, vol, fit }` 만 적혀요:
+  `src`(파일의 열쇠) · `dur`(원본 길이, 초) · `in`–`out`(쓰는 구간) · `vol`(소리 0–100) · `fit`(`'cover'` 꽉 채우기 · `'contain'` 다 보이게).
+  앞뒤를 잘라도 원본은 그대로예요. `cleanDesign` 이 값을 범위 안으로 맞추고, 쓸 수 없는 것은 칸째 버려요.
+  디자인을 `{ bg, items }` 로 새로 짜 맞추는 곳에서는 `...designVideo(design)` 을 함께 펼쳐 넣어야 영상 장면이 따라가요(움직임의 `designMotion` 처럼).
+- **저장과 꺼내기는 프로젝트의 몫이에요.** 편집기는 찍거나 고른 파일을 `saveVideo(made)` 에 넘기고, 받은 열쇠를 디자인에 적어요.
+  그리거나 틀 때는 `configure({ loadVideo })` 로 꺼내요(편집기뿐 아니라 `designView` · 내보내기 · 발표 화면이 모두 쓰므로 설정에 둬요).
+  열쇠는 영어 · 숫자 · `-` · `_` 로 4–64자(`isVideoKey`). 예를 들어 기기의 IndexedDB 에 둘 수 있어요.
+- **안 쓰는 파일을 지우는 것도 프로젝트의 몫이에요.** 영상을 빼거나 바꿔도 편집기는 파일을 지우지 않아요(실행 취소로 되살릴 수 있어야 하니까요).
+  편집기를 닫은 뒤에, 디자인들이 쓰는 열쇠(`design.video.src`)와 견주어 지우세요. **고친 디자인이 저장된 것을 확인한 뒤에** 지워야 해요
+  (저장에 실패했는데 지우면, 남아 있는 예전 디자인이 가리키는 파일이 사라져요).
+- 카메라가 꾸미기 판을 덮고 있는 동안에는 편집기가 옆 메뉴와 도구 막대를 막아요(`inert`). 프로젝트의 단추(장 바꾸기 등)는 `busy()` 를 보고 막으세요.
+- **그리기**(`scene.js`): `designView` 가 바탕에 `sceneView` 를 깔아요. 쓰는 구간의 첫 모습을 그림으로 꺼내 보여 주고(조금 뒤에 채워져요),
+  파일이 없으면 "이 기기에는 영상이 없어요" 이름표가 보여요. `designToBlob` · `designSheet` 는 그 그림이 놓일 때까지 기다린 뒤에 그리고,
+  파일이 없을 때의 이름표는 내보내지 않아요(카드의 바탕색만 나와요. `designView(design, { sceneNote: false })`).
+- **틀기**: 발표 화면처럼 영상을 틀 곳에서는 그 요소 위에 `scenePlayer` 를 얹어요.
+
+```js
+import { designView, cleanDesign, scenePlayer } from './minican/index.js';
+
+const design = cleanDesign(saved, { keepSpaces: true });
+const view = designView(design, { sceneEdge: 1920 });        // sceneEdge: 첫 모습 그림의 긴 쪽(px)
+stage.append(view);
+const layer = design.video ? view.querySelector(':scope > .fe-scene') : null;
+const film = layer ? scenePlayer(layer, design.video, { onState: (playing) => {}, onEnd: () => {} }) : null;
+film?.play({ from: design.video.in });      // 쓰는 구간만 틀고, 끝에서 마지막 모습으로 멈춰요. 소리가 막히면 소리 없이 틀어요
+// film.pause() · film.seek(초) · film.set(video) · film.playing · film.destroy()(장을 뗄 때 꼭)
+```
+
+- 요소의 번호는 `.fi` 만 세요(`playDesign` 이 그렇게 해요). 바탕의 `.fe-scene` 이 카드의 첫 자식으로 끼어 있어요.
+- **영상으로 만들 때**(`designsToVideo`)는 영상 장면이 발표할 때처럼 **움직이는 채로, 소리와 함께** 담겨요(아래 "영상으로 만들기"의 "영상 장면과 소리").
+- 카메라로 찍은 파일의 종류는 브라우저가 정해요(크롬은 WebM). 고른 파일은 `probeVideo(blob)` 으로 그 브라우저에서 틀 수 있는지 먼저 봐요.
+
+### 도구 막대 · 고른 테두리 · 오른쪽 누르기 메뉴의 규칙
+
+- **도구 막대**는 세 묶음(`.fe-group`: 스타일 · 배치 · 작업)과 삭제로 나뉘고, 묶음 사이는 `.fe-sep` 이 나눠요.
+  글자 단추는 칸(`.fe-pop`)을 펼치고, 아이콘 단추는 누르면 바로 해요. 아이콘만 있는 단추에는 `aria-label` 과 `title` 이 붙어요.
+- **고른 테두리**(`.fe-sel`)와 손잡이(`.fe-h`)는 카드 밖의 덮개(`.fe-overlay`)에 있어요. 그래서 저장하는 디자인에도, 내보내는 그림에도 들어가지 않아요.
+  손잡이는 화면 px 로 고정이고(12px, 손가락은 20px), 보이는 것보다 바깥쪽으로 넉넉하게 잡혀요. 요소가 40px(손가락은 52px)보다 작으면 테두리를 그만큼 넉넉하게 둘러요.
+  돌리기 손잡이가 카드 위로 45px(손가락은 60px)쯤 나오고, 옆과 아래로는 손잡이가 16px 쯤 나와요. 카드 둘레에 그만큼 자리를 두세요(넘치는 것을 자르는 칸 안에 둔다면 더욱).
+- **오른쪽 누르기 메뉴**(`.fe-menu`)는 `document.body` 에 붙어요. 아이콘 · 이름 · 단축키 세 칸이고, 화면 밖으로 나가지 않게 자리를 맞춰요.
+- **레이어 칸**은 줄을 끌어 순서를 바꿔요(`model.js` 의 `moveLayer`). 마우스는 줄 어디든, 손가락은 왼쪽 손잡이(`.fe-layer-grip`)예요.
+  끄는 동안 가장 가까운 "넘길 수 있는 칸"(없으면 화면)을 저절로 넘겨요. 손잡이에서 ↑ ↓ 글쇠로도 옮겨요.
+
+## 5. 디자인의 모양
+
+```js
+{
+  bg: 'paper',                 // 배경: backgrounds 의 id 또는 '#rrggbb'
+  items: [                     // 뒤에 있을수록 위에 보여요
+    { t: 'text',  x, y, rot, op, lock, w, text, size, color, font, bold, italic, under, align, bgc },
+    { t: 'emoji', x, y, rot, op, lock, fx, fy, w, ch },
+    { t: 'shape', x, y, rot, op, lock, fx, fy, w, h, shape, color, r?, line?, lc?, hollow? },
+    { t: 'image', x, y, rot, op, lock, fx, fy, w, h, mask, url, path? },
+  ],
+  pa?, tr?,                    // 움직임(정했을 때만): 조합 효과 · 전환 효과
+  video?: { src, dur, in, out, vol, fit },   // 영상 장면(있을 때만): 바탕에 까는 영상의 열쇠와 쓰는 구간
+}
+```
+
+- `x`, `y`: 요소 **가운데 점**의 자리. 카드 가로·세로에 대한 백분율(0–100)
+- `w`: 카드 너비에 대한 백분율 · `h`: 카드 높이에 대한 백분율 · `size`(글자 크기): 카드 너비를 100 으로 본 값
+- `rot`: 기울기(도) · `op`: 투명도 10–100 · `lock`: 잠금 · `fx`/`fy`: 좌우·상하 뒤집기
+- `id`(있을 때만): 요소의 이름표(영어 소문자로 시작하는 영어 소문자·숫자 6–32자). 편집기는 붙이지도 바꾸지도 않고 그대로 들고 다녀요.
+  여럿이 함께 꾸미는 프로젝트가 "어느 요소가 바뀌었는지" 가려낼 때 붙여요(예: 여럿이 함께 만드는 그림). 복제 · 붙여넣기로 생긴 요소는 이름표를 물려받지 않아요.
+- `align`: `l`·`c`·`r` · `bgc`: 글 바탕색(없으면 `''`) · `mask`: `none`·`round`·`circle`
+- 도형의 꾸밈(정했을 때만 적혀요. 없으면 예전 모양 그대로예요)
+  - `r`: 모서리 둥글기 0–100. **짧은 변의 절반에 대한 %** 라서 100 이면 양 끝이 반원이고, 크기를 바꿔도 둥근 정도가 그대로예요(네모·둥근 네모만).
+    `r` 이 없는 둥근 네모는 예전처럼 카드 너비의 4% 로 둥글어요.
+  - `line`: 테두리 굵기(카드 너비를 100 으로 본 값, `EDGE.min`–`EDGE.max`) · `lc`: 테두리 색 · `hollow`: 속을 비움(테두리만).
+    테두리가 없으면 `hollow` 는 버려져요(보이지 않는 도형은 저장되지 않아요). `shapes.js` 에서 `edge: true` 인 애셋만 받아요.
+    편집기에서 속을 비운 도형은 테두리만 눌려요(빈 속을 누르면 그 밑의 요소가 골라져요. 밑에 아무것도 없으면 그 도형이 골라져요).
+
+그대로 JSON 으로 저장하면 돼요(Firestore 문서의 한 칸에 그대로 넣어도 돼요). 글만 뽑으려면 `designTexts(design)`,
+쓰인 사진을 알려면 `designImages(design)`.
+
+## 6. 다른 사람이 만든 디자인을 보여 줄 때 (꼭 읽기)
+
+- `designView()` 와 편집기는 그리기 전에 늘 `cleanDesign()` 을 거쳐요. 모르는 값은 버려지고, 글은 글자로만 들어가요(HTML 로 읽지 않아요).
+- **사진 주소는 프로젝트가 좁혀야 해요.** 기본값은 아무 `https` 주소나 받는데, 여러 사람이 올린 디자인을 보여 주는 프로젝트에서는
+  그러면 남의 서버 그림(추적용 그림 포함)을 불러오게 돼요. `cleanImage` 로 "우리 저장소의 주소만" 받게 하세요.
+- 서버(보안 규칙)에서는 개수·길이 정도만 막고, 값의 모양은 그릴 때 `cleanDesign()` 이 거르게 하면 규칙이 단순해져요.
+
+## 7. Firebase 에 연결하는 예
+
+```js
+import { ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js';
+import { doc, setDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { configure, createEditor } from './minican/index.js';
+
+const BUCKET = 'my-project.firebasestorage.app';
+const OURS = new RegExp(`^https://firebasestorage[.]googleapis[.]com/v0/b/${BUCKET.replace(/[.]/g, '[.]')}/o/designs%2F[\\w.%-]+[?][\\w=&.%-]*$`);
+
+configure({
+  // 우리 저장소의 designs 폴더 주소만 그림으로 받는다
+  cleanImage: (img) => (typeof img.url === 'string' && OURS.test(img.url) && /^designs\/[\w-]+\/[\w.-]+$/.test(img.path || '')
+    ? { url: img.url, path: img.path } : null),
+});
+
+let timer = 0;
+const editor = createEditor({
+  design: loaded,
+  uploadImage: async ({ blob, ext, type }) => {
+    const path = `designs/${uid}/${crypto.randomUUID()}.${ext}`;
+    const file = ref(storage, path);
+    await uploadBytes(file, blob, { contentType: type });
+    return { url: await getDownloadURL(file), path };
+  },
+  onChange: () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => setDoc(doc(db, 'designs', uid), { design: editor.getDesign() }), 500);
+  },
+});
+editor.mount(document.getElementById('editor'));
+```
+
+- **배경 제거를 다시 연 화면에서도 쓰려면** 저장소가 사이트 주소를 허락해야 해요(버킷의 CORS 설정).
+  허락이 없으면 방금 올린 사진만 배경을 지울 수 있어요(그림 내용을 읽으려면 허락이 필요해서예요).
+- **배경 제거의 두 방식.** 🤖 자동은 AI(`segment.js`)가 사진의 주인공(사람 · 동물 · 사물)을 찾고, `cutout.js` 가 그 윤곽을 사진의 실제 테두리에 맞춰 붙여요
+  (안내 필터 → 떨어진 부스러기 · 작은 구멍 치우기 → 가장자리 곡선 → 지우개 · 살리개 붓질 → 가장자리에 묻은 배경색 걷어 내기).
+  🎨 단색 배경은 가장자리와 이어진 한 가지 색을 지워요(그림 · 로고 · 흰 종이). 사진의 가장자리가 거의 한 가지 색이면 단색 방식으로 열려요.
+  AI 는 사진을 기기 밖으로 보내지 않고 브라우저 안에서 돌아요. 실행기(onnxruntime-web 1.29.0, MIT)는 jsDelivr 에서, 모델은 이 폴더의 `models/` 에서 처음 한 번 받아요
+  (실행기 약 11MB + 모델 4.4MB. 그 뒤로는 브라우저가 기억해요). 받지 못하면 단색 방식은 그대로 쓸 수 있어요.
+- 안 쓰게 된 사진 파일 정리는 프로젝트의 몫이에요. 저장할 때 `designImages()` 로 쓰는 것과 올린 것을 견줘 지우고, 지웠으면 `editor.forget()` 을 불러요.
+
+## 8. 색과 모양 맞추기
+
+```css
+body {
+  --fe-primary: #0b7285;        /* 고른 것의 테두리, 눌린 단추 */
+  --fe-primary-dark: #095c6b;
+  --fe-soft: #e3fafc;           /* 옅은 바탕 */
+  --fe-line: #dde2ef;           /* 테두리 */
+  --fe-card-radius: 0;          /* 카드 모서리 */
+  --fe-shadow-pop: 0 8px 24px rgba(0, 0, 0, .18);   /* 떠 있는 것(오른쪽 누르기 메뉴 · 펼친 칸)의 그림자 */
+  --fe-danger: #c92a2a;         /* 삭제에 올려놓았을 때의 색(옅은 바탕은 --fe-danger-soft) */
+  --fe-sticky-top: 64px;        /* 위에 붙어 있는 머리말의 높이 */
+}
+```
+
+그 밖에 `--fe-text`, `--fe-muted`, `--fe-warn`, `--fe-warn-soft`, `--fe-shadow`, `--fe-pop-width`, `--fe-font` 가 있어요. 클래스 이름은 모두 `fe-`(편집기)와 `fi`(요소)로 시작해요.
+
+### 영상으로 만들기
+
+움직임을 그대로 담은 영상 파일을 만들 수 있어요. 화면을 녹화하지 않고 **직접 그려서** 만들어요(그래서 권한을 묻지 않고, 크기가 기기와 상관없이 같아요).
+
+```js
+import { designsToVideo, canMakeVideo, canFilmScenes, filmPlan, videoSize } from './minican/index.js';
+
+if (canMakeVideo()) {                                        // VideoEncoder(WebCodecs) 나 MediaRecorder 가 있는 브라우저(크롬 · 엣지)
+  const size = videoSize(16 / 9, 1080);                      // { width: 1920, height: 1080 } — 짧은 쪽을 맞추고 짝수로
+  const stop = new AbortController();
+  const made = await designsToVideo(designs, {               // designs: 장의 차례대로
+    ...size, stay: 5,                                        // stay: 한 장이 머무는 시간(초)
+    canvas,                                                  // (없어도 됨) 화면에 붙여 둔 canvas 를 주면 만드는 모습이 보여요
+    onProgress: (p) => { bar.style.width = `${p * 100}%`; }, // 0~1
+    signal: stop.signal,                                     // stop.abort() 로 그만두기
+    fixBlob,                                                 // (없어도 됨) 다 만든 파일을 손볼 함수. 아래 참고
+  });
+  // made: { blob, type, ext('mp4' | 'webm'), seconds, width, height, missingFonts,
+  //         sound('aac' | 'opus' | ''), soundLost, scenes, stills } — 그만뒀으면 null. 10분을 넘으면 code 가 'too-long' 인 오류
+}
+// 만들기 전에 길이를 알려 줄 때(영상 장면을 틀지 못하는 브라우저에서는 scenes: false 로. 파일이 없는 영상 장면은 디자인에서 떼고 줘요)
+const length = filmPlan(designs.map((d) => cleanDesign(d, { keepSpaces: true })), { stay: 5, scenes: canFilmScenes() }).ms;
+```
+
+- **어떻게 만드나**: 한 장의 요소를 "움직이는 것 하나씩"과 "가만히 있는 묶음"으로 나눠 투명한 그림으로 한 번 그려 두고(`export.js` 의 `designSheet`. 그림으로 내려받을 때와 같은 방법이라
+  글꼴 · 줄 바꿈이 똑같아요), 프레임마다 그 그림들을 옮겨 붙여요. 그 순간의 모습은 `motion.js` 의 `enterPose` · `transitionPose` 가, 언제 무엇이 나오는지는 `film.js` 의 `filmPlan` 이 정해요.
+  화면용 키프레임과 같은 표에서 나오므로 발표 화면과 같은 움직임이에요.
+- **시간**: 한 장은 `stay` 초 동안 보여요(전환 효과가 끝난 때부터). "누를 때" 나오는 요소는 읽는 차례대로 저절로 나오고, 다 나온 뒤 1.5초는 더 보여 줘요. 그래서 요소가 많은 장은 조금 길어져요. 첫 장은 전환 없이 열려요.
+- **영상으로 만드는 두 가지 길**(`filmToVideo` 가 차례로 써 봐요):
+  1. **한 장씩 인코딩하기**(`encodeFilm`. WebCodecs 의 `VideoEncoder`): 프레임을 한 장 그릴 때마다 인코더에 넣고, 나온 조각들을 `mux.js` 가 파일로 묶어요.
+     시계를 따라가지 않아서 **기기가 느려도 프레임이 빠지지 않고**(영상의 f 번째 프레임은 늘 f ÷ fps 초의 그림), 빠른 기기에서는 영상 길이보다 빨리 끝나요.
+     화면이 가려져도(다른 탭) 멈추지 않아요. H.264 → MP4 를 먼저, 안 되면 VP9 · VP8 → WebM. 파일에 **길이와 찾아가기 표가 온전히** 들어가요(MP4 는 머리말이 앞).
+  2. **틀면서 녹화하기**(`recordFilm`. `MediaRecorder`): 인코더를 쓸 수 없는 브라우저에서 써요. 영상 길이만큼 걸리고, 기기가 밀리면 프레임이 빠질 수 있고,
+     다른 탭으로 가면 그동안 쉬어요. 크롬이 이렇게 녹화한 MP4 에는 길이가 적혀 있지 않아요(재생기에 따라 길이가 안 보이거나 건너뛰기가 안 돼요).
+  한 장씩 인코딩하는 길은 먼저 네 장만 인코딩해서 브라우저의 디코더(`VideoDecoder`)로 풀어 봐요(가려진 탭에서도 되고, 그림이 정말 풀리는지까지 봐요).
+  H.264 는 화질 좋은 설정(High)부터 Main · Baseline 차례로, 수준(level)은 그림의 크기에 맞는 가장 낮은 것으로 물어봐요.
+  만들다 인코더가 실패하거나 다 만든 것이 **분명히** 틀어지지 않으면 다음 길로 처음부터 다시 만들어요(`onRetry` 가 불려요).
+  가려진 탭에서는 브라우저가 `<video>` 읽기를 미뤄서 다 만든 파일을 틀어 볼 수 없는데, 그것은 "알 수 없음"이지 "안 됨"이 아니라서 파일을 그대로 써요.
+  안 된 길은 창을 새로 열 때까지 그 크기에서 다시 써 보지 않아요. 그림을 준비하거나 그리지 못한 것(필름의 오류. `fromFilm` 이 붙어요)은 길을 바꿔도 같으므로 바로 던져요.
+- **영상 장면과 소리**(한 장씩 인코딩하는 길에서. `canFilmScenes()` 가 참인 브라우저):
+  - **시간**: 영상 장면은 발표할 때처럼 그 장이 열리면(전환 효과가 끝난 때. 첫 장은 0.3초 뒤) 쓰는 구간의 처음부터 틀어요. 그 장은 적어도 영상이 끝나고 0.5초 뒤까지 이어져요
+    (`filmPlan` 이 장마다 `scene: { start, ms }` 를 적어요). 트기 전과 다 튼 뒤 · 장이 넘어가는 동안에는 쓰는 구간의 첫 모습 · 마지막 모습이 보여요.
+  - **그림**: 프레임마다 "그 순간에 보이는 장면"을 영상 파일에서 꺼내(`reel.js` 의 `openReel`) 바탕 바로 위에 그리고, 요소들을 그 위에 얹어요(꽉 채우기 · 다 보이게, 세워 찍은 영상의 돌림까지 화면과 같게).
+    꺼내는 길은 둘이에요. 먼저 **풀어서 꺼내기**: `demux.js` 가 파일(WebM · MP4)의 자리표를 읽고, 조각을 차례로 브라우저의 디코더(`VideoDecoder`)에 넣어요. 그때의 장면이 정확히 나오고 빨라요(한 장에 한 번만 풀어요).
+    자리표를 읽을 수 없는 파일(조각난 MP4 등)이거나 디코더가 받아 주지 않으면 **찾아가서 꺼내기**: `<video>` 를 그때로 찾아가게 하고 읽어요(느리지만 브라우저가 틀 수 있으면 돼요). 꺼내다 실패해도 이 길로 바꿔 이어 가요.
+    색을 읽는 법이 적혀 있지 않은 영상은 `<video>` 와 같은 짐작(높이 720 미만은 BT.601)을 디코더에 알려 줘서, 발표 화면과 색이 같아요.
+    조각의 때는 재생기가 보여 주는 때와 같게 읽어요: MP4 의 편집표(`elst`. 앞을 다시 인코딩하지 않고 잘라 낸 영상 · 늦게 시작하는 트랙)를 따라요.
+    꺼내다 끝내 실패한 영상은 더 꺼내지 않고 멈춘 그림으로 둬요(영상 전체를 그만두지 않아요. `made.stills` 에 세요).
+    릴이 준 프레임은 다음 것을 꺼내면 못 쓰게 되므로 `seek` 이 끝난 바로 뒤에 그려요. 기다리지 않고 그릴 때(틀면서 녹화)는 `seek(n, local, { keep: true })` 로 베껴 두게 해요.
+  - **소리**(`sound.js`): 영상 장면들의 소리를 풀어서(`decodeSound`. 브라우저의 `decodeAudioData`) 시간표대로 한 줄(48000Hz · 2채널)로 섞고(`mixSound`. 쓰는 구간 · 소리 크기 · 앞뒤 0.012초는 서서히),
+    인코딩해서(`encodeSound`. `AudioEncoder`) 그림과 함께 파일에 담아요. **MP4 에는 AAC 를 먼저, 그 인코더가 없으면 Opus** 를, **WebM 에는 Opus** 를 담아요
+    (MP4 안의 Opus 는 크롬 · 엣지 · 안드로이드에서 들리지만 못 트는 프로그램이 있어요. `made.sound === 'opus' && made.ext === 'mp4'` 일 때 알려 주세요).
+    풀어 낸 소리는 파일의 첫 소리 조각부터라서, 소리가 영상보다 늦게 시작하는 파일(`demuxVideo` 의 `audioStart`)은 그만큼 밀어서 넣어요.
+    들릴 소리가 없으면(영상 장면이 없거나, 소리가 없는 영상이거나, 소리 크기가 0) 소리 트랙 없이 만들어요. 소리가 있었는데 담지 못하면(인코더가 없는 브라우저 등) 그림만 담고 `made.soundLost` 가 참이에요
+    (`made.sound` 도 있으면, 소리를 풀지 못한 영상의 것만 빠진 거예요).
+  - 파일이 이 기기에 없는 영상 장면은 바탕색만 나와요(시간표에서도 그 영상의 길이를 세지 않아요).
+  - **틀면서 녹화하는 길**밖에 없는 브라우저에서는 영상 장면이 **첫 모습의 멈춘 그림**으로 들어가고 소리가 없어요(`made.stills` 가 그 수예요. `canFilmScenes()` 가 거짓).
+  - **길이의 한도**: 영상은 다 만들 때까지 메모리에 쌓이므로 `MAX_FILM_SECONDS`(600초)까지만 만들어요(넘으면 `code: 'too-long'` 인 오류). 160초를 넘으면 화질(비트 수)을 조금씩 낮춰 전체가 200MB 쯤을 넘지 않게 해요.
+- **색**: 인코더가 알려 준 "색을 읽는 법"(`decoderConfig.colorSpace`)을 파일에 적어요(WebM 의 `Colour`, MP4 의 `colr`). 적지 않으면 재생기가 짐작해서,
+  특히 VP8 로 만든 WebM 은 색이 조금 달라 보여요.
+- **화질**: 초당 30장, 비트 수는 크기에 맞춰 넉넉히 줘요(1920×1080 에 10Mbps, 1280×720 에 4.6Mbps. 가만히 있는 장면이 많아 실제 파일은 훨씬 작아요).
+  인코더에는 화질을 먼저 생각하라고 해요(`latencyMode: 'quality'`). 2초마다 온전한 장면을 넣어 어디로든 건너뛸 수 있어요.
+- **`fixBlob(blob, seconds)`**: 다 만든 파일을 손볼 함수예요(종류가 무엇이든 넘겨줘요. 손볼 수 없는 종류는 받은 것을 그대로 돌려주면 돼요).
+  틀면서 녹화한 WebM 에는 길이가 적혀 있지 않아 재생기의 진행 막대가 이상할 수 있는데, 길이를 적어 넣는 함수를 주면 그것으로 손봐요
+  (이 폴더는 바깥 코드를 쓰지 않으려고 이 함수를 받아서 써요). 한 장씩 인코딩한 파일은 손볼 것이 없어요.
+- **메모리**: 지금 장과 그 앞뒤 장의 그림만 들고 있어요.
+- 더 잘게 쓰려면 `createFilm(designs, { width, height, stay })` 가 `{ canvas, plan, ready(n), draw(n, local), drop(n), close() }` 를 돌려줘요(그 순간의 그림 한 장만 필요할 때).
+  `filmToVideo(film, …)` 가 그 필름을 파일로 만들고(길 고르기 · 다시 만들기 포함), `encodeFilm(film, { kind })` · `recordFilm(film, { kind })` 가 한 번 만들어요.
+  `muxMp4` · `muxWebm` 은 인코딩한 조각들을 파일로 묶는 순수 함수예요(다른 곳에서 인코딩한 것을 묶을 때도 써요). `audio: { codec: 'aac' | 'opus', rate, channels, description, samples: [{ data, ts, dur }] }` 를 함께 주면 소리 트랙도 담아요(WebM 은 Opus 만).
+  필름에는 `seek(n, local)`(그 순간의 영상 장면 프레임을 꺼내 두기. `draw` 앞에 불러요) · `sound()`(섞은 소리 `{ track, lost }`) · `stills()`(움직이는 채로 담지 못한 영상 장면의 수)도 있어요.
+- 새 효과를 더할 때: 빠르기는 `linear` · `ease` · `ease-in` · `ease-out` · `ease-in-out` 과 0~1 을 벗어나지 않는 `cubic-bezier` 만 써요(영상이 같은 값을 계산할 수 있는 것).
+  영상의 시간표가 화면과 같은 값을 계산하는지 테스트로 함께 확인해 주세요.
+- 뒤집기 효과의 원근은 보통의 화면(1366 × 768)에 꽉 차게 띄운 카드를 기준으로 맞춰요.
+
+## 9. 파일
+
+| 파일 | 하는 일 | 브라우저가 필요한가 |
+| --- | --- | --- |
+| `index.js` | 한곳에서 가져다 쓰는 입구 | — |
+| `model.js` | 규칙: 요소의 모양과 정리, 끌기·크기·돌리기 계산, 템플릿, `configure` | 아니요(순수 함수, node 에서 테스트) |
+| `motion.js` | 움직임: 효과 목록 · 키프레임 · 나오는 차례 · 그 순간의 모습(순수 함수)과 재생(`playDesign` · `playTransition`) | 규칙은 아니요, 재생만 |
+| `film.js` | 영상의 시간표: 몇 초에 무엇이 어떤 모습인지(`filmPlan` · `slidePoses`), 요소를 칸으로 나누기(`filmCells` · `packCells`), 영상의 크기(`videoSize`) | 아니요 |
+| `video.js` | 영상으로 만들기: 요소를 그림으로 준비하고, 프레임마다 그려서 인코딩하거나 녹화(`designsToVideo` · `createFilm`) | 예 |
+| `mux.js` | 인코딩한 조각들(그림 · 소리)을 MP4 · WebM 파일로 묶기(`muxMp4` · `muxWebm`) | 아니요 |
+| `demux.js` | 영상 파일(WebM · MP4) 읽기: 영상 조각들이 파일의 어디에 있고 언제 보이는지(`demuxVideo`) | 아니요 |
+| `reel.js` | 영상 파일에서 "t 초에 보이는 장면"을 한 장씩 꺼내기(`openReel`): 디코더로 풀거나, `<video>` 를 찾아가게 해서 | 예 |
+| `sound.js` | 소리: 영상의 소리를 풀고(`decodeSound`), 시간표대로 한 줄로 섞고(`mixSound`), 인코딩하기(`encodeSound`) | 섞기는 아니요, 풀기 · 인코딩만 |
+| `cutout.js` | 배경 제거 계산: 단색 배경 찾기, 경계 맞추기(안내 필터) · 부스러기 치우기 · 붓질 · 가장자리 색 걷어 내기(`refineCutout`) | 아니요 |
+| `segment.js` | 배경 제거의 "주인공 찾기" AI(U²-Net 작은 판, onnxruntime-web). 처음 쓸 때만 불러와요 | 예 |
+| `models/u2netp.onnx` | 위 AI 모델(4.4MB, Apache-2.0 — `models/README.md`) | — |
+| `stickers.js` | 그래픽(이모지) 목록과 찾기 | 아니요 |
+| `shapes.js` | 카드에 놓는 요소 애셋(도형·화살표·말풍선·꾸밈): 이름·분류·기본 색·크기·그림 | 아니요 |
+| `icons.js` | UI 아이콘 한 세트(선 그림)와 `icon(name)` | 예(`icon` 만) |
+| `render.js` | 디자인을 화면 요소로 그리기(`designView`) | 예 |
+| `scene.js` | 영상 장면: 첫 모습을 그림으로 꺼내 깔기(`sceneView` · `sceneFrame`), 틀기(`scenePlayer`), 파일 살펴보기(`probeVideo`) | 예 |
+| `export.js` | 디자인을 그림 파일로 만들기(`designToBlob`), 요소를 따로 그려 늘어놓기(`designSheet`) | 예 |
+| `editor.js` | 편집기(`createEditor`) | 예 |
+| `images.js` | 사진 줄이기, 픽셀 읽기 | 예 |
+| `fonts.js` | 글꼴 파일 알리기 | 예 |
+| `dom.js` | 요소 만들기, 알림 | 예 |
+| `minicanva.css` | 스타일 전부 | — |
+
+`index.js` 의 내보내기: `createEditor`, `designView`, `designToBlob`, `designToCanvas`, `itemView`, `configure`, `settings`, `registerFonts`, `fontReady`,
+`cleanDesign`, `emptyDesign`, `designTexts`, `designImages`, `shrinkImage`, `removeBackground`, `refineCutout`, `searchStickers`, `toast`,
+`designsToVideo`, `createFilm`, `filmToVideo`, `encodeFilm`, `encodeKinds`, `recordFilm`, `canMakeVideo`, `canFilmScenes`, `videoTypes`, `muxMp4`, `muxWebm`, `opusHead`, `designSheet`, `motion.js` · `film.js` 의 전부,
+`sceneView`, `scenePlayer`, `sceneFrame`, `sceneUrl`, `sceneBlob`, `keepScene`, `dropScene`, `scenesReady`, `probeVideo`, `ACCEPT_VIDEOS`,
+`demuxVideo`, `blobReader`, `bytesReader`, `openReel`, `videoInfo`, `SOUND_RATE`, `soundTrack`, `mixSound`, `hasSound`, `decodeSound`, `encodeSound`, `soundKinds`, `canDecodeSound`,
+그리고 `model.js` 의 나머지 전부.
+
+### 아이콘과 요소 애셋
+
+둘은 따로 관리해요. 모두 이 폴더 안에서 직접 그린 SVG 라서 바깥 파일도, 따를 사용 조건도 없어요.
+
+- **UI 아이콘** `icons.js` — 단추와 도구 줄에 쓰는 선 그림 한 세트(24칸, 굵기 2, 글자색을 따름). `icon('undo')` 가 `<span class="fe-ic">` 를 돌려줘요.
+  아이콘만 있는 단추에는 `aria-label` 과 `title` 을 주세요. 프로젝트의 단추에도 같은 세트를 쓰면 화면이 한 벌로 보여요(`index.js` 가 `icon`, `iconSvg`, `ICONS` 를 내보내요).
+- **요소 애셋** `shapes.js` — 카드에 놓는 것(디자인의 `{ t: 'shape', shape: id }`). 애셋마다 `id`(저장되는 이름) · `name` · `group` · `w`·`h`(처음 크기) · `color`(처음 색) · 그림(`box` + `svg`, 또는 `css: true`)이 있어요.
+  색은 한 가지(글자색으로 채움)라서 어떤 애셋이든 도구 막대에서 색을 바꿀 수 있어요. 고르는 칸의 작은 그림(`shapeThumb`)과 카드 위의 요소가 같은 그림을 써요.
+  노트북·로봇·지구 같은 **그림 요소는 두 톤**으로 그려요: 바탕은 글자색, 밝은 면은 하양(`#ffffff`), 그늘은 검정(`#000000`)을 비치게 얹어요. 정해 둔 색이 하양과 검정뿐이라 색 하나로 그림 전체가 바뀌어요.
+  하얀 면(카드·종이)에는 글자색의 옅은 테두리를 둘러서 흰 배경에서도 보이게 해요. 두 톤 그림에는 `edge` 를 주지 않아요(테두리가 하얀 면까지 덮어써요).
+  두 톤 그림을 하양에 가까운 색으로 바꾸면 밝은 면이 바탕과 같아져요. 그때는 밝은 면을 옅은 그늘로 바꿔 그려서 그림이 남아요(`render.js` 가 `.pale` 을 붙여요).
+  `edge: true` 면 도구 막대에 **채우기**(없음 = 테두리만)와 **테두리**(색·굵기)가, `corner: true` 면 **모서리**(둥글기)가, `thin: true`(선·점선)면 **굵기**가 나와요.
+  테두리는 CSS 도형에는 테두리 선으로, SVG 도형에는 획으로 그려요(`vector-effect: non-scaling-stroke` 라 늘여도 굵기가 고르게 나와요). 그래서 **획으로 그린 부분이 있는 애셋에는 `edge` 를 주지 마세요**(굵기가 덮어써져요).
+  애셋을 더하려면 `SHAPE_ASSETS` 에 한 줄을 더해요. **이미 있는 `id` 는 바꾸지 마세요**(저장된 디자인이 그 이름으로 적혀 있어요. 모르는 이름은 네모로 읽혀요).
+
+## 10. 없는 것 · 알아 둘 것
+
+- 여러 장(쪽) 관리, 여러 개 한꺼번에 고르기·묶기, 여럿이 함께 고치기는 없어요.
+  여러 장은 프로젝트가 디자인 여러 개를 들고 `setDesign()` 으로 바꿔 끼우면 돼요(카드뉴스처럼 여러 장을 만드는 화면이 그렇게 해요).
+- 화면의 글은 초등학생 눈높이의 한국어로 적혀 있어요.
+- 최신 브라우저가 필요해요(CSS 컨테이너 단위 `cqw` 를 써요: Chrome·Edge 105+, Safari 16+, Firefox 110+).
+- 영상 장면은 한 장에 하나, 바탕에만 깔려요(요소처럼 옮기거나 크기를 바꿀 수 없어요). 영상으로 만들 때의 소리는 영상 장면의 소리뿐이에요(배경 음악은 없어요).
+- 점검: `npm test` — `tests/minican.test.mjs`(규칙 · 옮겨 쓰기) · `tests/minican-cutout.test.mjs`(배경 제거) · `tests/minican-video-encode.test.mjs` · `tests/minican-video-record.test.mjs`(인코딩 · 녹화: 가짜 인코더 · 시계 · 녹화기로) · `tests/minican-mux.test.mjs`(파일 묶기) · `tests/minican-demux.test.mjs`(영상 파일 읽기. `tests/fixtures/` 의 작은 진짜 파일로) · `tests/minican-sound.test.mjs`(소리 섞기), 그리고 `demo/index.html` 을 브라우저로 눌러 보기.
+- 영상으로 만들기는 크롬 · 엣지에서 돼요(사파리는 이렇게 그린 canvas 를 꺼내지 못하게 막을 수 있어요. 그림으로 내려받기와 같아요).

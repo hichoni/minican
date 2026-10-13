@@ -1,0 +1,567 @@
+/* minicanva — 작은 캔바식 꾸미기 편집기의 스타일. 이 파일 하나를 <link> 로 넣는다.
+   편집기를 쓰는 화면뿐 아니라, designView 로 디자인을 "보기만" 하는 화면에도 넣어야 요소가 제자리에 보인다.
+
+   색과 모양은 아래 변수로 프로젝트에 맞춘다(예: body { --fe-primary: #0b7285; }). */
+:root {
+  --fe-primary: #3949c7;        /* 고른 것의 테두리, 눌린 단추 */
+  --fe-primary-dark: #26318f;
+  --fe-soft: #eef0ff;           /* 옅은 바탕(마우스를 올렸을 때, 눌린 단추) */
+  --fe-line: #dde2ef;           /* 테두리 */
+  --fe-text: #1d2433;
+  --fe-muted: #5a6376;
+  --fe-warn: #b34a12;
+  --fe-warn-soft: #fff4d6;
+  --fe-shadow: 0 2px 10px rgba(29, 36, 51, .08);
+  --fe-shadow-pop: 0 2px 6px rgba(29, 36, 51, .08), 0 12px 28px rgba(29, 36, 51, .16);   /* 떠 있는 것(메뉴 · 펼친 칸)은 모두 이 그림자 */
+  --fe-danger: #c92a2a;         /* 지우기처럼 되돌려야 하는 일 */
+  --fe-danger-soft: #fff0f0;
+  --fe-card-radius: 5%;         /* 카드 모서리 */
+  --fe-pop-width: min(100%, 520px);   /* 넓은 화면에서 도구 막대 아래에 뜨는 칸의 너비 */
+  /* --fe-font: 기본 글꼴(없으면 프로젝트의 글꼴을 그대로 따른다) */
+}
+.fe-card, .fe-card *, .fe-stage, .fe-stage *, .fe-tools, .fe-tools *, .fe-panel, .fe-panel *, .fe-menu, .fe-menu * { box-sizing: border-box; }
+.fe-stage [hidden], .fe-tools [hidden], .fe-panel [hidden] { display: none !important; }
+.fe-tools button, .fe-panel button, .fe-menu button, .fe-tools select, .fe-panel input, .fe-tools input { font-family: inherit; }
+/* UI 아이콘(icons.js): 글자 크기를 따라 커지고(1.25배), 색은 글자색을 따른다. 크게 쓸 곳은 그 자리에서 width·height 를 정한다 */
+.fe-ic { display: inline-grid; place-items: center; flex: none; width: 1.25em; height: 1.25em; vertical-align: -.24em; }
+.fe-ic svg { display: block; width: 100%; height: 100%; }
+
+/* ---- 카드(디자인 한 장). 놓인 칸의 너비를 따라 커지고 작아진다. 글자 크기는 카드 너비를 따라간다(cqw) ---- */
+/* 넘치는 것은 자르기만 한다(clip): hidden 이면 카드 밖으로 나간 요소 때문에 카드 안쪽이 "넘길 수 있는 칸"이 되어,
+   글을 고칠 때 브라우저가 글자 자리를 보이게 하려고 카드 속을 밀어 버릴 수 있다(요소가 통째로 어긋나 보인다). */
+.fe-card {
+  container-type: inline-size; position: relative; width: 100%; aspect-ratio: var(--fe-ratio, 1); overflow: hidden; overflow: clip;
+  border-radius: var(--fe-card-radius, 5%); background: var(--fe-bg, #fffdf5); color: var(--fe-ink, #1d2433);
+  text-align: left; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere;
+}
+/* 빈 카드의 안내(편집 화면에만 보인다): 아이콘 + 한 줄 + 작은 한 줄. 글만 넣은 것(designView 의 empty)도 가운데에 온다 */
+.fe-empty {
+  position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 6px; padding: 8%; text-align: center;
+  font-size: 5cqw; font-weight: 700; opacity: .5; pointer-events: none;
+}
+/* 카드가 아주 커도(큰 화면) 안내가 따라서 커지지 않게 크기에 한도를 둔다 */
+.fe-empty .fe-ic { width: clamp(30px, 11cqw, 52px); height: clamp(30px, 11cqw, 52px); margin-bottom: 4px; opacity: .8; }
+.fe-empty .fe-ic svg { stroke-width: 1.5; }
+.fe-empty b { font-size: clamp(14px, 4.6cqw, 20px); font-weight: 800; }
+.fe-empty span:not(.fe-ic) { font-size: clamp(11px, 3.3cqw, 14px); font-weight: 500; }
+/* 영상 장면(scene.js): 카드의 바탕에 깔린다. 첫 모습의 그림(still) 위에, 꾸미기 판과 발표 화면에서는 진짜 영상(live)이 얹힌다.
+   요소들은 그 위에 놓인다(영상은 눌리지 않는다). 파일이 이 기기에 없으면(.missing) 그렇다고 알려 준다. */
+.fe-scene { position: absolute; inset: 0; overflow: hidden; background: #000; pointer-events: none; }
+.fe-scene.loading { background: transparent; }
+.fe-scene-still, .fe-scene-live { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
+.fe-scene.fit-contain .fe-scene-still, .fe-scene.fit-contain .fe-scene-live { object-fit: contain; }
+.fe-scene-note { display: none; }
+/* 파일이 없을 때: 카드의 바탕색이 그대로 보이고(놓아 둔 글이 읽히게), 위쪽에 작은 이름표로 알린다. 아주 작은 그림에서는 아이콘만 남긴다 */
+.fe-scene.missing { background: transparent; }
+.fe-scene.missing .fe-scene-note, .fe-scene-flag {
+  position: absolute; left: 50%; top: 3.5%; display: inline-flex; align-items: center; gap: .45em; max-width: 92%; padding: .32em .8em;
+  border-radius: 999px; background: rgba(29, 36, 51, .82); color: #fff; font-size: clamp(9px, 2.6cqw, 15px); font-weight: 700; line-height: 1.3;
+  white-space: nowrap; transform: translateX(-50%); pointer-events: none;
+}
+.fe-scene.missing .fe-scene-note b { overflow: hidden; font-weight: inherit; text-overflow: ellipsis; }
+@container (max-width: 220px) {
+  .fe-scene.missing .fe-scene-note { padding: .3em; }
+  .fe-scene.missing .fe-scene-note b { display: none; }
+}
+/* 꾸미기 판에서는 요소에 가려지지 않게 맨 위(테두리 · 손잡이가 놓이는 겹)에 이름표를 따로 둔다 */
+.fe-stage .fe-scene.missing .fe-scene-note { display: none; }
+.fe-scene-flag { font-size: clamp(11px, 1.7vw, 14px); z-index: 1; }
+/* 요소: 텍스트 · 그래픽(이모지) · 도형 · 사진 */
+.fi { position: absolute; box-sizing: border-box; margin: 0; user-select: none; -webkit-user-select: none; }
+.fi-text { white-space: pre-wrap; line-height: 1.25; font-weight: 500; text-align: center; }
+.fi-text.bold { font-weight: 900; }
+.fi-text.al-l { text-align: left; }
+.fi-text.al-r { text-align: right; }
+.fi-text.italic { font-style: italic; }
+.fi-text.under { text-decoration: underline; text-underline-offset: .12em; }
+.fi-text.boxed { padding: .22em .5em; border-radius: .32em; }
+.fi-emoji { width: max-content; line-height: 1.15; }
+/* 도형·꾸밈 요소(shapes.js): SVG 로 그린 것은 칸에 꽉 차게, 색은 글자색. 네모·둥근 네모·동그라미·캡슐·선은 CSS 로 그린다 */
+.fi-shape svg, .fe-shape-view svg { display: block; width: 100%; height: 100%; fill: currentColor; overflow: hidden; }
+/* 두 톤 그림 요소를 하양에 가까운 색으로 바꾸면 밝은 면(하양)이 바탕과 같아져 그림이 사라진다. 그때는 밝은 면을 옅은 그늘로 그린다. */
+.fi-shape.pale svg [fill="#ffffff"] { fill: #000; fill-opacity: .14; }
+.fi-shape.pale svg [stroke="#ffffff"] { stroke: #000; stroke-opacity: .16; }
+.sh-rect, .sh-round, .sh-circle, .sh-line, .sh-pill { background: currentColor; }
+.sh-round { border-radius: 4cqw; }
+.sh-circle { border-radius: 50%; }
+.sh-line { border-radius: 1cqw; }
+.sh-pill { border-radius: 9999px; }
+/* 테두리(.edged)와 속 비움(.hollow): 굵기 --fe-edge 와 색 --fe-edge-color 는 요소마다 render.js 가 적는다.
+   CSS 로 그린 도형은 테두리 선으로(상자 안쪽에 그려진다), SVG 로 그린 도형은 획으로 두른다(늘여도 굵기가 고르게: non-scaling-stroke).
+   획은 윤곽선의 안팎으로 반씩 걸치므로, 그림을 굵기의 절반만큼 안으로 들여서 테두리가 상자(고른 테두리·정렬의 기준) 밖으로 나가지 않게 한다 */
+.fi-shape.edged { padding: calc(var(--fe-edge, 0) / 2); }
+.sh-rect.edged, .sh-round.edged, .sh-circle.edged, .sh-pill.edged { padding: 0; border: var(--fe-edge, 0) solid var(--fe-edge-color, currentColor); }
+.fi-shape.edged svg { overflow: visible; }
+.fi-shape.edged svg * {
+  stroke: var(--fe-edge-color, currentColor); stroke-width: var(--fe-edge, 0); stroke-linejoin: round; vector-effect: non-scaling-stroke;
+}
+.fi-shape.hollow { background: transparent; }
+.fi-shape.hollow svg * { fill: none; }
+/* 사진은 카드보다 크게 키울 수 있다(배경으로 깔기). 쓰는 화면의 img { max-width: 100% } 같은 스타일에 눌리지 않게 한다 */
+.fi-image { object-fit: cover; max-width: none; max-height: none; }
+.fi-image.mk-round { border-radius: 6cqw; }
+.fi-image.mk-circle { border-radius: 50%; }
+.fi-image.broken { background: #e2e5e9; }
+
+/* ---- 꾸미기 판: 카드 + 테두리·손잡이 ---- */
+/* --fe-scroll-top: 화면 위에 붙어 있는 띠(머리말·도구 막대)가 차지하는 높이. 카드나 옆 칸을 보이는 곳으로 데려올 때 그 아래에 오게 한다. */
+.fe-stage { position: relative; border-radius: var(--fe-card-radius, 5%); outline: none; scroll-margin-top: var(--fe-scroll-top, 12px); }
+.fe-stage:focus-visible { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--fe-primary); }
+.fe-stage .fi { cursor: move; touch-action: none; -webkit-touch-callout: none; }
+.fe-stage .fi-text:empty { min-height: 1.25em; }
+.fe-stage .fi-text:empty::before { content: '글을 써요'; opacity: .4; }
+/* 올려놓았을 때: 고를 수 있는 것임을 가는 선으로만 알린다 */
+.fe-stage .fi:hover { outline: 1.5px solid rgba(57, 73, 199, .5); outline-offset: 1px; }
+.fe-stage .fi.sel:hover { outline: none; }
+/* 카드 위에서 바로 글을 고치는 중 */
+.fe-stage .fi.editing {
+  cursor: text; touch-action: auto; user-select: text; -webkit-user-select: text; outline: none;
+  box-shadow: 0 0 0 1.5px #fff, 0 0 0 3.5px var(--fe-primary);
+}
+/* 고른 것의 테두리와 손잡이. 선은 가늘게(1.5px), 그 안팎에 옅은 흰 선을 둘러서 어두운 배경·사진 위에서도 보인다.
+   손잡이는 보이는 크기보다 넉넉하게 잡힌다(::after 가 닿는 자리). 닿는 자리는 바깥쪽으로만 넓힌다: 안쪽으로 넓히면 요소를 눌러 옮기기 어렵다.
+   크기는 화면 px 로 고정이라 카드가 크든 작든 같다 */
+.fe-overlay { position: absolute; inset: 0; pointer-events: none; }
+/* 움직임을 미리 보는 동안에는 고른 테두리와 손잡이를 감춘다(움직임을 가리지 않게) */
+.fe-stage.fe-playing .fe-overlay { visibility: hidden; }
+.fe-sel { position: absolute; outline: 1.5px solid var(--fe-primary); outline-offset: 1px; box-shadow: 0 0 0 3.5px rgba(255, 255, 255, .75); }
+/* 함께 꾸밀 때: 다른 사람이 고른 요소. 그 사람의 색(--fe-other) 테두리와 이름표 */
+.fe-others { position: absolute; inset: 0; }
+.fe-other { position: absolute; outline: 2px solid var(--fe-other, #e8590c); outline-offset: 2px; border-radius: 2px; }
+.fe-other-name {
+  position: absolute; left: -4px; bottom: calc(100% + 6px); padding: 1px 7px; border-radius: 6px; background: var(--fe-other, #e8590c); color: #fff;
+  font-size: 12px; font-weight: 800; line-height: 18px; white-space: nowrap;
+}
+.fe-sel.locked { outline: 1.5px dashed #868e96; }
+.fe-sel.locked .fe-h { display: none; }
+.fe-h {
+  position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 1.5px solid var(--fe-primary);
+  box-shadow: 0 1px 3px rgba(29, 36, 51, .3); pointer-events: auto; touch-action: none;
+}
+.fe-h::after { content: ''; position: absolute; }
+.fe-h:hover { background: var(--fe-soft); }
+/* 모서리 네 곳: 크기(비율 그대로). 손잡이의 가운데가 테두리 선 위에 온다 */
+.fe-scale.nw { left: -2px; top: -2px; transform: translate(-50%, -50%); cursor: nwse-resize; }
+.fe-scale.ne { right: -2px; top: -2px; transform: translate(50%, -50%); cursor: nesw-resize; }
+.fe-scale.sw { left: -2px; bottom: -2px; transform: translate(-50%, 50%); cursor: nesw-resize; }
+.fe-scale.se { right: -2px; bottom: -2px; transform: translate(50%, 50%); cursor: nwse-resize; }
+.fe-scale.nw::after { inset: -8px 0 0 -8px; }
+.fe-scale.ne::after { inset: -8px -8px 0 0; }
+.fe-scale.sw::after { inset: 0 0 -8px -8px; }
+.fe-scale.se::after { inset: 0 -8px -8px 0; }
+/* 변의 가운데: 너비 · 높이 */
+.fe-wide { right: -2px; top: 50%; width: 6px; height: 18px; border-radius: 3px; transform: translate(50%, -50%); cursor: ew-resize; }
+.fe-tall { left: 50%; bottom: -2px; width: 18px; height: 6px; border-radius: 3px; transform: translate(-50%, 50%); cursor: ns-resize; }
+.fe-wide::after { inset: -6px -8px -6px 0; }
+.fe-tall::after { inset: 0 -6px -8px -6px; }
+/* 돌리기: 위쪽 가운데에서 가는 선으로 이어진다. 작은 요소는 테두리를 넉넉하게 두르므로(--fe-pad-y), 그만큼 당겨서 요소에서 늘 같은 거리에 둔다 */
+.fe-rot { left: 50%; top: calc(-30px + var(--fe-pad-y, 0px)); width: 22px; height: 22px; transform: translate(-50%, -50%); cursor: grab; display: grid; place-items: center; }
+.fe-rot::before {
+  content: ''; position: absolute; left: 50%; top: calc(100% + 1.5px); width: 1.5px; height: max(0px, calc(17px - var(--fe-pad-y, 0px))); margin-left: -.75px;
+  background: var(--fe-primary); pointer-events: none;
+}
+.fe-rot::after { inset: -8px; border-radius: 50%; }
+.fe-rot .fe-ic { width: 12px; height: 12px; color: var(--fe-primary-dark); pointer-events: none; }
+.fe-rot .fe-ic svg { stroke-width: 2.6; }
+/* 잠근 것: 손잡이 대신 오른쪽 위에 작은 자물쇠 */
+.fe-lockmark {
+  display: none; position: absolute; right: -2px; top: -2px; transform: translate(50%, -50%); place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  background: #fff; border: 1.5px solid #868e96; color: #5a6376; box-shadow: 0 1px 3px rgba(29, 36, 51, .3);
+}
+.fe-lockmark .fe-ic { width: 11px; height: 11px; }
+.fe-lockmark .fe-ic svg { stroke-width: 2.6; }
+.fe-sel.locked .fe-lockmark { display: grid; }
+/* 가운데 맞춤 안내선 */
+.fe-guide { position: absolute; }
+.fe-guide.v { left: 50%; top: 0; bottom: 0; margin-left: -.5px; border-left: 1px solid #e64980; }
+.fe-guide.h { top: 50%; left: 0; right: 0; margin-top: -.5px; border-top: 1px solid #e64980; }
+@media (pointer: coarse) {
+  /* 손가락: 손잡이를 더 크게. 닿는 자리는 테두리에서 16px 넘게 나가지 않는다(카드 옆 여백이 좁은 화면에서 옆으로 넘치지 않게) */
+  .fe-h { width: 20px; height: 20px; }
+  .fe-scale.nw::after { inset: -4px 0 0 -4px; }
+  .fe-scale.ne::after { inset: -4px -4px 0 0; }
+  .fe-scale.sw::after { inset: 0 0 -4px -4px; }
+  .fe-scale.se::after { inset: 0 -4px -4px 0; }
+  .fe-wide { width: 8px; height: 28px; border-radius: 4px; }
+  .fe-tall { width: 28px; height: 8px; border-radius: 4px; }
+  .fe-wide::after { inset: -8px -8px -8px 0; }
+  .fe-tall::after { inset: 0 -8px -8px -8px; }
+  .fe-rot { top: calc(-40px + var(--fe-pad-y, 0px)); width: 30px; height: 30px; }
+  .fe-rot::before { height: max(0px, calc(23px - var(--fe-pad-y, 0px))); }
+  .fe-rot::after { inset: -10px; }
+  .fe-rot .fe-ic { width: 15px; height: 15px; }
+}
+
+/* ---- 도구 막대: 고른 요소에 따라 바뀐다 ----
+   카드 위쪽에 두려면 높이가 바뀌어도 카드가 밀리지 않게 놓아야 한다(고르는 순간 카드가 손 밑에서 움직이면 두 번 누르기와 끌기가 빗나간다).
+   그래서 넓은 화면에서는 펼친 칸(.fe-pop)을 띄우고, 좁은 화면에서는 도구 막대를 카드 아래에 두기를 권한다(.fe-app 이 그렇게 한다). */
+.fe-tools { position: relative; border: 2px solid var(--fe-line); border-radius: 14px; background: #fff; box-shadow: var(--fe-shadow); }
+.fe-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 5px 6px; min-height: 50px; }
+.fe-tb {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 36px; padding: 4px 9px; border: 0; border-radius: 9px; background: transparent; color: var(--fe-text);
+  font-size: .9rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.fe-tb .fe-ic { width: 18px; height: 18px; }
+.fe-tb:focus-visible, .fe-btn:focus-visible, .fe-tab:focus-visible, .fe-shape:focus-visible, .fe-layout:focus-visible, .fe-layer:focus-visible, .fe-textadd:focus-visible, .fe-sticker:focus-visible, .fe-pop-close:focus-visible {
+  outline: 3px solid var(--fe-primary); outline-offset: 2px;
+}
+.fe-tb:hover:not(:disabled) { background: var(--fe-soft); }
+.fe-tb:active:not(:disabled) { background: #dfe3ff; }
+/* 눌려 있는 것(굵게 · 펼친 칸): 옅은 바탕에 가는 테만 두른다 */
+.fe-tb.on { background: var(--fe-soft); color: var(--fe-primary-dark); box-shadow: inset 0 0 0 1px #c3caf6; }
+.fe-tb:disabled { opacity: .35; cursor: default; }
+/* 삭제는 다른 단추와 떨어져 있고, 올려놓으면 붉게 바뀐다 */
+.fe-tb.del:hover:not(:disabled) { background: var(--fe-danger-soft); color: var(--fe-danger); }
+/* 묶음(스타일 · 배치 · 작업): 줄바꿈은 낱낱의 단추대로 되게 상자를 만들지 않는다. 묶음 사이는 .fe-sep 이 나눈다 */
+.fe-group { display: contents; }
+.fe-tb.icon { min-width: 36px; padding: 4px 6px; font-size: 1.02rem; }
+.fe-tb.b { font-weight: 900; }
+.fe-tb.i { font-style: italic; font-family: Georgia, serif; }
+.fe-tb.u { text-decoration: underline; }
+.fe-sep { width: 2px; align-self: stretch; margin: 5px 3px; background: var(--fe-line); border-radius: 1px; }
+.fe-sep.lone { visibility: hidden; }      /* 줄의 맨 끝·맨 앞에 걸린 구분선(도구 막대가 두 줄일 때): 자리는 두고 감춘다 */
+.fe-hint { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px; color: var(--fe-muted); font-size: .92rem; }
+.fe-tools select.fe-font {
+  height: 36px; max-width: 132px; padding: 0 6px; border: 2px solid var(--fe-line); border-radius: 9px; background: #fff; font-weight: 600;
+}
+.fe-size { display: inline-flex; align-items: center; border: 2px solid var(--fe-line); border-radius: 9px; margin: 0 2px; }
+.fe-size .fe-tb { min-height: 32px; border-radius: 7px; }
+.fe-size .fe-num { min-width: 2.2em; text-align: center; color: var(--fe-text); font-weight: 700; }
+.fe-a { display: inline-grid; justify-items: center; line-height: 1; gap: 2px; font-weight: 900; }
+.fe-ink { display: block; width: 18px; height: 5px; border-radius: 2px; border: 1px solid rgba(29, 36, 51, .25); }
+.fe-ink.dot { width: 16px; height: 16px; border-radius: 50%; }
+/* 테두리 색을 보여 주는 고리 · "없음"(흰 바탕에 빨간 빗금) */
+/* 흰 테두리도 보이게 고리의 안팎에 옅은 선을 두른다 */
+.fe-ink.ring { border: 4px solid var(--fe-text); background: transparent; box-shadow: 0 0 0 1px rgba(29, 36, 51, .25), inset 0 0 0 1px rgba(29, 36, 51, .25); }
+.fe-ink.none, .fe-ink.ring.none {
+  border: 1px solid rgba(29, 36, 51, .3); box-shadow: none;
+  background: linear-gradient(to top right, #fff calc(50% - 1px), #e03131 calc(50% - 1px), #e03131 calc(50% + 1px), #fff calc(50% + 1px));
+}
+.fe-a:has(.dot) { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.fe-pop { position: relative; display: grid; gap: 8px; padding: 10px 44px 10px 12px; border-top: 2px solid var(--fe-line); background: #fafbff; border-radius: 0 0 12px 12px; }
+.fe-pop-close {
+  position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--fe-muted); font-size: .9rem; cursor: pointer;
+}
+.fe-pop-close:hover { background: var(--fe-soft); color: var(--fe-text); }
+.fe-poshead { font-size: .88rem; font-weight: 800; color: var(--fe-primary-dark); }
+.fe-note { margin: 0; font-size: .9rem; font-weight: 400; line-height: 1.45; color: var(--fe-muted); }
+.fe-note.strong { color: var(--fe-text); font-weight: 600; }
+.fe-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; }
+/* 펼친 칸 안의 단추 묶음: 두 칸 · 세 칸으로 고르게 놓는다(좁은 칸에서도 줄이 들쭉날쭉하지 않게) */
+.fe-grid { display: grid; gap: 6px; margin: 0; }
+.fe-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fe-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.fe-grid .fe-btn { justify-content: flex-start; padding: 5px 10px; white-space: nowrap; }
+.fe-grid .fe-btn .fe-ic { color: var(--fe-muted); }
+.fe-grid .fe-btn:hover:not(:disabled) .fe-ic, .fe-btn.on .fe-ic { color: inherit; }
+.fe-btn.stack { flex-direction: column; justify-content: center; gap: 3px; padding: 8px 4px 7px; font-size: .82rem; }
+.fe-btn.stack .fe-ic { width: 20px; height: 20px; }
+.fe-poshead ~ .fe-poshead { margin-top: 6px; }
+/* 움직임(발표할 때)을 고르는 단추: 작은 카드에서 그 효과를 틀어 보여 준다(올려놓거나 글쇠로 닿으면) */
+.fe-motions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.fe-mo { display: grid; gap: 5px; align-content: start; padding: 5px 5px 6px; border: 1.5px solid var(--fe-line); border-radius: 10px; background: #fff; color: var(--fe-text); text-align: center; cursor: pointer; }
+.fe-mo:hover { border-color: var(--fe-primary); }
+.fe-mo.on { border-color: var(--fe-primary); box-shadow: 0 0 0 1.5px var(--fe-primary); background: var(--fe-soft); }
+.fe-mo:focus-visible { outline: 3px solid var(--fe-primary); outline-offset: 2px; }
+.fe-mo-view { position: relative; display: grid; border-radius: 6px; overflow: hidden; background: #eef1fb; pointer-events: none; }
+.fe-mo-view > * { grid-area: 1 / 1; }
+.fe-mo-view .fe-card { width: 100%; --fe-card-radius: 0; }
+.fe-mo-view.none { aspect-ratio: 1.42; place-items: center; color: var(--fe-muted); font-size: 1.1rem; }
+.fe-mo small { font-size: .74rem; font-weight: 700; line-height: 1.25; word-break: keep-all; }
+.fe-mo.on small { color: var(--fe-primary-dark); }
+.fe-motion-go { margin-top: 4px; flex-wrap: wrap; }
+.fe-motion-when .fe-btn { justify-content: center; }
+.fe-motions + .fe-head { margin-top: 16px; }
+.fe-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fe-sw {
+  width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 2px solid rgba(29, 36, 51, .2); cursor: pointer;
+  display: grid; place-items: center; font-size: .8rem; font-weight: 900; color: var(--fe-muted); background: #fff;
+}
+.fe-sw.on { box-shadow: 0 0 0 2px #fff, 0 0 0 5px var(--fe-primary); }
+.fe-tools input.fe-color, .fe-panel input.fe-color { width: 40px; height: 34px; padding: 1px; border: 2px solid var(--fe-line); border-radius: 10px; background: #fff; cursor: pointer; flex: none; }
+.fe-slider { display: grid; grid-template-columns: auto minmax(0, 1fr) 3em; align-items: center; gap: 10px; margin: 0; font-weight: 600; }
+.fe-slider input[type=range] { width: 100%; padding: 0; border: 0; accent-color: var(--fe-primary); flex: none; }
+.fe-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--fe-muted); }
+/* 배경 제거: 왼쪽은 미리보기(체크무늬 위에 보여서 투명한 곳이 드러난다), 오른쪽은 조절 */
+.fe-cut { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 12px; align-items: start; }
+.fe-cut-view {
+  display: grid; place-items: center; padding: 6px; border-radius: 10px; border: 2px solid var(--fe-line);
+  background: repeating-conic-gradient(#e9ecef 0% 25%, #fff 0% 50%) 0 0 / 16px 16px;
+}
+.fe-cut-view { gap: 4px; }
+.fe-cut-canvas { display: block; max-width: 100%; max-height: 52vh; height: auto; }
+/* 지우개 · 살리개를 고르면 미리보기 위를 칠한다(터치로 끌어도 화면이 움직이지 않게) */
+.fe-cut-canvas.brush-erase, .fe-cut-canvas.brush-keep { touch-action: none; cursor: crosshair; }
+.fe-cut-canvas.brush-erase { outline: 3px dashed #e8590c; outline-offset: 2px; }
+.fe-cut-canvas.brush-keep { outline: 3px dashed #2b8a3e; outline-offset: 2px; }
+.fe-cut-chip { display: inline-flex; align-items: center; gap: 6px; }
+.fe-cut-ai { margin: 0; padding: 8px 10px; border-radius: 10px; background: #eef3ff; color: #364fc7; font-weight: 700; }
+.fe-cut-side { display: grid; gap: 8px; }
+.fe-check { display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+.fe-check input[type=checkbox] { width: 20px; height: 20px; flex: none; accent-color: var(--fe-primary); }
+
+/* 오른쪽 누르기 메뉴(터치는 길게 누르기). 화면 어디서든 누른 자리에 뜬다.
+   한 줄은 아이콘 · 이름 · 단축키(오른쪽 맞춤)이고, 묶음 사이에 가는 선을 둔다. 화면보다 길면 메뉴 안에서 넘긴다 */
+.fe-menu {
+  position: fixed; z-index: 60; min-width: 216px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; padding: 5px;
+  background: #fff; border: 1px solid var(--fe-line); border-radius: 10px; box-shadow: var(--fe-shadow-pop);
+  font-size: .86rem; line-height: 1.3; transform-origin: 0 0; animation: fe-menu-in .1s ease-out;
+}
+@keyframes fe-menu-in { from { opacity: 0; transform: scale(.97); } }
+.fe-mi {
+  display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; width: 100%; min-height: 32px; padding: 4px 10px 4px 9px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--fe-text); font-size: inherit; font-weight: 500; text-align: left; cursor: pointer;
+}
+.fe-mi .fe-ic { width: 16px; height: 16px; color: var(--fe-muted); }
+.fe-mi-name { white-space: nowrap; }
+.fe-mi kbd { margin-left: 18px; font: inherit; font-size: .74rem; font-weight: 500; color: var(--fe-muted); white-space: nowrap; }
+.fe-mi:hover:not(:disabled), .fe-mi:focus-visible { background: var(--fe-soft); color: var(--fe-primary-dark); outline: none; }
+.fe-mi:hover:not(:disabled) .fe-ic, .fe-mi:focus-visible .fe-ic { color: inherit; }
+.fe-mi:active:not(:disabled) { background: #dfe3ff; }
+.fe-mi:disabled { opacity: .38; cursor: default; }
+.fe-mi.danger:hover:not(:disabled), .fe-mi.danger:focus-visible { background: var(--fe-danger-soft); color: var(--fe-danger); }
+.fe-msep { height: 1px; margin: 5px 4px; background: var(--fe-line); }
+/* 손가락으로 열었을 때: 줄을 넉넉하게, 단축키는 감춘다 */
+.fe-menu.touch .fe-mi { min-height: 44px; }
+.fe-menu.touch .fe-mi kbd { display: none; }
+@media (pointer: coarse) {
+  .fe-mi { min-height: 44px; }
+  .fe-mi kbd { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fe-menu { animation: none; }
+  .fe-layers.sorting .fe-layer-row { transition: none; }
+  .fe-shape { transition: none; }
+  .fe-shape:active { transform: none; }
+}
+
+/* ---- 영상 칸: 틀어 보기 + 진행 막대 · 앞뒤 자르기 · 소리 · 화면 맞춤 · 바꾸기 · 빼기 ---- */
+.fe-video-now { display: flex; align-items: center; gap: 12px; }
+.fe-video-play { flex: none; gap: 6px; min-height: 40px; padding: 6px 14px; }
+.fe-video-bar { position: relative; flex: 1; height: 6px; border-radius: 999px; background: var(--fe-line); overflow: hidden; }
+.fe-video-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit; background: var(--fe-primary); }
+.fe-video-len { font-size: .85rem; color: var(--fe-muted); font-variant-numeric: tabular-nums; }
+.fe-slider.wide { grid-template-columns: 2.4em minmax(0, 1fr) 3.8em; }
+.fe-slider.wide .fe-num { text-align: right; white-space: nowrap; }
+.fe-slider .fe-num { font-variant-numeric: tabular-nums; }
+.fe-video-swap .fe-btn.fe-upload { justify-content: center; min-height: 40px; padding: 6px 8px; font-size: .9rem; white-space: nowrap; }
+.fe-video-fit { justify-content: center !important; }
+.fe-video-remove { justify-self: start; gap: 6px; color: var(--fe-danger); }
+.fe-video-remove:hover:not(:disabled) { border-color: var(--fe-danger); color: var(--fe-danger); background: var(--fe-danger-soft); }
+
+/* ---- 카메라로 찍기: 꾸미기 판 위에 카메라 화면을 덮는다(보이는 그대로가 그 장의 바탕이 된다) ---- */
+.fe-stage.fe-filming .fe-overlay { visibility: hidden; }
+.fe-cam {
+  position: absolute; inset: 0; z-index: 6; overflow: hidden; border-radius: var(--fe-card-radius, 5%); background: #000; color: #fff; outline: none;
+  font-size: .95rem; line-height: 1.5;
+}
+.fe-cam video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
+/* (앞 카메라의 미리 보기를 거울처럼 뒤집지 않는다: 찍히는 영상은 뒤집히지 않으므로, 보이는 그대로가 바탕이 되게 한다) */
+.fe-cam.recording::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 0 4px var(--fe-danger); pointer-events: none; }
+.fe-cam-top { position: absolute; left: 10px; right: 10px; top: 10px; display: flex; justify-content: center; pointer-events: none; }
+.fe-cam-chip { padding: 4px 12px; border-radius: 999px; background: rgba(0, 0, 0, .6); font-size: .85rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fe-cam-chip.rec { background: var(--fe-danger); }
+.fe-cam-msg { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 8%; background: rgba(0, 0, 0, .62); text-align: center; font-weight: 600; }
+.fe-cam-msg p { margin: 0; max-width: 28em; }
+.fe-cam-row, .fe-cam-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.fe-cam-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 10px 10px; background: linear-gradient(transparent, rgba(0, 0, 0, .6)); }
+.fe-cam .fe-btn { gap: 6px; min-height: 44px; padding: 6px 14px; border-color: transparent; }
+.fe-cam .fe-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.fe-btn.rec { border-color: var(--fe-danger); background: var(--fe-danger); color: #fff; font-weight: 800; }
+.fe-btn.rec:hover:not(:disabled), .fe-btn.rec:active:not(:disabled) { border-color: #a61e1e; background: #a61e1e; color: #fff; }
+
+/* 카메라가 그림 칸을 덮고 있는 동안에는 옆 메뉴와 도구 막대를 쓸 수 없다(편집기가 inert 로 막는다). 흐리게 보여 준다 */
+.fe-panel[inert], .fe-tools[inert] { opacity: .55; }
+
+/* 옆 메뉴: 넣을 것을 고르는 칸들 */
+/* (칸의 내용이 바뀔 때 브라우저가 스크롤을 슬쩍 맞추지 않게 한다: 보던 자리는 편집기가 정한다) */
+.fe-panel { display: grid; gap: 10px; scroll-margin-top: var(--fe-scroll-top, 12px); overflow-anchor: none; }
+/* 칸은 한 줄에 나란히(여섯 개. 움직임 칸 · 영상 칸을 켠 프로젝트는 여덟 개까지) */
+.fe-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; }
+.fe-tab {
+  display: grid; justify-items: center; gap: 3px; padding: 8px 2px; border: 0; border-radius: 12px; background: var(--fe-soft);
+  color: var(--fe-primary-dark); font-size: .8rem; font-weight: 700; cursor: pointer;
+}
+.fe-tab:hover { background: #dfe3ff; }
+.fe-tab.on { background: var(--fe-primary); color: #fff; }
+.fe-tab .fe-tab-icon { width: 22px; height: 22px; }
+/* 칸이 여덟 개면 좁은 화면에서 세 글자 이름이 두 줄로 갈라진다. 글자를 조금 줄여 한 줄에 둔다 */
+@media (max-width: 520px) {
+  .fe-tabs.many .fe-tab { padding-inline: 0; font-size: clamp(.66rem, 2.85vw, .8rem); letter-spacing: -.02em; }
+  .fe-tabs.many .fe-tab span:last-child { white-space: nowrap; }
+}
+.fe-tabbody { display: grid; gap: 10px; min-height: 120px; align-content: start; }
+/* 칸의 머리말: 이름 + 한 줄 설명 */
+.fe-panel-head { display: grid; gap: 2px; }
+.fe-panel-title { font-size: 1rem; font-weight: 800; color: var(--fe-text); }
+.fe-panel-desc { font-size: .82rem; line-height: 1.45; color: var(--fe-muted); }
+/* 묶음의 작은 제목(요소 칸의 분류 등): 칸의 제목보다 한 단계 작게, 카드의 이름표보다는 또렷하게. 묶음 사이는 넉넉히 띄운다 */
+.fe-head { margin-top: 12px; font-size: .82rem; font-weight: 700; line-height: 1.3; color: var(--fe-text); }
+.fe-panel-head + .fe-head { margin-top: 2px; }
+/* 템플릿: 작은 그림(실제로 들어올 모양 그대로) + 이름. 테두리 상자 없이, 올려놓거나 고르면 그림 둘레에 테를 두른다 */
+.fe-layouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 10px; }
+.fe-layout { display: grid; gap: 6px; align-content: start; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--fe-text); text-align: center; cursor: pointer; }
+.fe-layout-view { display: block; border-radius: 7px; overflow: hidden; outline: 1px solid rgba(29, 36, 51, .12); pointer-events: none; transition: outline-color .12s ease; }
+.fe-layout-view .fe-card { --fe-card-radius: 0; }
+.fe-layout:hover .fe-layout-view { outline: 2px solid var(--fe-primary); }
+.fe-layout.armed .fe-layout-view { outline: 3px solid var(--fe-warn); }
+.fe-layout small { font-size: .8rem; font-weight: 600; line-height: 1.3; }
+.fe-layout.armed small { color: var(--fe-warn); font-weight: 800; }
+.fe-texts { display: grid; gap: 8px; }
+.fe-textadd {
+  padding: 10px 14px; border: 2px solid var(--fe-line); border-radius: 12px; background: #fff; text-align: left; cursor: pointer;
+  font-weight: 900; color: var(--fe-text);
+}
+.fe-textadd:hover { border-color: var(--fe-primary); background: var(--fe-soft); }
+.fe-textadd.title { font-size: 1.5rem; }
+.fe-textadd.sub { font-size: 1.15rem; }
+.fe-textadd.body { font-size: .98rem; font-weight: 500; }
+.fe-upload { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; font-size: 1rem; }
+/* 올린 파일 목록: 작은 그림을 누르면 카드에 놓인다. 오른쪽 위의 휴지통으로 지운다(한 번 더 묻는다) */
+.fe-files-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.fe-files-head .fe-head { margin-top: 0; }
+.fe-files-count { font-size: .8rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--fe-muted); }
+.fe-files { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.fe-file { position: relative; aspect-ratio: 1; border-radius: 10px; }
+.fe-file-view {
+  display: grid; place-items: center; width: 100%; height: 100%; padding: 5px; border: 1px solid transparent; border-radius: 10px; background: #f4f5f9; cursor: pointer;
+  transition: border-color .12s ease, background-color .12s ease;
+}
+.fe-file-view img { display: block; max-width: 100%; max-height: 100%; min-width: 0; min-height: 0; object-fit: contain; border-radius: 4px; pointer-events: none; }
+.fe-file-view img.broken { width: 60%; height: 60%; background: #e2e5e9; }
+.fe-file-view:hover:not(:disabled) { border-color: var(--fe-primary); background: #fff; }
+.fe-file-view:active:not(:disabled) { background: var(--fe-soft); }
+.fe-file-view:disabled { cursor: default; opacity: .6; }
+.fe-file-view:focus-visible, .fe-file-del:focus-visible, .fe-layer-grip:focus-visible { outline: 3px solid var(--fe-primary); outline-offset: 2px; }
+.fe-file-mark {
+  position: absolute; left: 5px; bottom: 5px; padding: 1px 6px; border-radius: 999px; background: rgba(29, 36, 51, .78); color: #fff;
+  font-size: .68rem; font-weight: 700; line-height: 1.5; pointer-events: none;
+}
+.fe-file-del {
+  position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--fe-line); border-radius: 50%;
+  background: #fff; color: var(--fe-muted); cursor: pointer; box-shadow: 0 1px 2px rgba(29, 36, 51, .12);
+}
+.fe-file-del .fe-ic { width: 15px; height: 15px; }
+.fe-file-del:hover:not(:disabled), .fe-file.armed .fe-file-del { border-color: var(--fe-danger); background: var(--fe-danger-soft); color: var(--fe-danger); }
+.fe-file.armed .fe-file-view { border-color: var(--fe-danger); }
+/* 휴지통은 늘 보인다(터치 화면이 달린 노트북에서도 바로 누를 수 있게). 손가락이 주로 쓰는 기기에서는 조금 더 크게 */
+@media (hover: none), (pointer: coarse) { .fe-file-del { width: 32px; height: 32px; } }
+.fe-file-ask { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--fe-danger); border-radius: 10px; background: var(--fe-danger-soft); }
+.fe-btn.danger { border-color: var(--fe-danger); background: var(--fe-danger); color: #fff; }
+.fe-btn.danger:hover:not(:disabled), .fe-btn.danger:active:not(:disabled) { border-color: #a61e1e; background: #a61e1e; color: #fff; }
+/* 요소 고르기: 옅은 칸 안에 놓일 그림 그대로(같은 색·같은 비율) + 이름. 칸 전체가 눌린다 */
+.fe-shapes { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; }
+.fe-shape {
+  display: grid; grid-template-rows: calc(var(--fe-thumb-h, 30px) + 10px) auto; justify-items: center; align-items: center; align-content: start; gap: 2px; min-width: 0;
+  padding: 6px 2px 7px; border: 1px solid transparent; border-radius: 10px; background: #f4f5f9; color: var(--fe-text); cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease, transform .08s ease;
+}
+.fe-shape small { max-width: 100%; font-size: .72rem; font-weight: 600; line-height: 1.25; color: var(--fe-muted); text-align: center; word-break: keep-all; }
+.fe-shape:hover { border-color: var(--fe-primary); background: #fff; }
+.fe-shape:hover small { color: var(--fe-text); }
+.fe-shape:active { background: var(--fe-soft); transform: scale(.97); }
+/* 작은 그림의 칸: 높이 --fe-thumb-h · 너비 --fe-thumb-w 안에서 그 요소의 비율을 지킨다(--fe-shape-ratio = 가로 ÷ 세로) */
+.fe-shape-view { display: block; width: min(var(--fe-thumb-w, 44px), calc(var(--fe-thumb-h, 30px) * var(--fe-shape-ratio, 1))); min-height: 3px; aspect-ratio: var(--fe-shape-ratio, 1); }
+.fe-shape-view.sh-round { border-radius: 12.5%; }
+.fe-shape-view.sh-line { border-radius: 2px; }
+.fe-layers { display: grid; gap: 4px; }
+/* 레이어 한 줄: 끄는 손잡이 + 이름. 끄는 동안에는 줄이 손을 따라오고 다른 줄이 비켜 준다 */
+.fe-layer-row { display: flex; align-items: stretch; gap: 2px; }
+.fe-layer-row .fe-layer { flex: 1 1 auto; min-width: 0; }
+.fe-layer-grip {
+  flex: none; display: grid; place-items: center; width: 24px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #a3aabd;
+  cursor: grab; touch-action: none;
+}
+.fe-layer-grip .fe-ic { width: 16px; height: 16px; }
+.fe-layer-grip:hover { background: var(--fe-soft); color: var(--fe-primary-dark); }
+.fe-layers.sorting { user-select: none; -webkit-user-select: none; }
+.fe-layers.sorting .fe-layer-row { transition: transform .15s ease; }
+.fe-layers.sorting .fe-layer-row.dragging { position: relative; z-index: 2; transition: none; }
+.fe-layers.sorting .fe-layer-row.dragging .fe-layer { border-color: var(--fe-primary); background: #fff; box-shadow: var(--fe-shadow-pop); }
+.fe-layers.sorting .fe-layer, .fe-layers.sorting .fe-layer-grip { cursor: grabbing; }
+@media (pointer: coarse) { .fe-layer-grip { width: 36px; } }
+.fe-layer {
+  display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 10px; border: 1px solid var(--fe-line); border-radius: 10px; background: #fff;
+  color: var(--fe-text); font-size: .9rem; font-weight: 600; text-align: left; cursor: pointer;
+}
+.fe-layer > .fe-ic { color: var(--fe-muted); }
+.fe-layer-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fe-layer:hover { border-color: var(--fe-primary); }
+.fe-layer.on { border-color: var(--fe-primary); background: var(--fe-soft); }
+.fe-layer.on > .fe-ic { color: var(--fe-primary-dark); }
+@media (max-width: 600px) {
+  .fe-cut { grid-template-columns: minmax(0, 1fr); }
+  .fe-layouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---- 단추·알약 단추·그래픽 고르기·배경 고르기 ---- */
+.fe-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 36px; padding: 5px 12px; border: 2px solid var(--fe-line); border-radius: 10px; background: #fff; color: var(--fe-text);
+  font-size: .9rem; font-weight: 600; cursor: pointer;
+}
+.fe-btn:hover:not(:disabled) { border-color: var(--fe-primary); color: var(--fe-primary-dark); }
+.fe-btn:active:not(:disabled) { background: var(--fe-soft); }
+.fe-btn.on { border-color: var(--fe-primary); background: var(--fe-soft); color: var(--fe-primary-dark); }
+.fe-btn:disabled { opacity: .45; cursor: default; }
+.fe-btn.primary { background: var(--fe-primary); border-color: var(--fe-primary); color: #fff; }
+.fe-btn.primary:hover:not(:disabled) { background: var(--fe-primary-dark); border-color: var(--fe-primary-dark); color: #fff; }
+.fe-btn.primary:active:not(:disabled) { background: var(--fe-primary-dark); }
+.fe-chip {
+  min-height: 36px; padding: 5px 14px; border: 0; border-radius: 999px; background: var(--fe-soft); color: var(--fe-primary-dark);
+  font-size: .92rem; font-weight: 700; cursor: pointer;
+}
+.fe-chip.on { background: var(--fe-primary); color: #fff; }
+.fe-picker { display: grid; gap: 8px; padding: 10px; border: 2px solid var(--fe-line); border-radius: 14px; background: #fafbff; }
+.fe-panel input.fe-search, .fe-tools input.fe-search {
+  width: 100%; padding: 10px 12px; border: 2px solid var(--fe-line); border-radius: 10px; background: #fff; font-size: 1rem;
+}
+.fe-stickers { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; max-height: 230px; overflow: auto; }
+.fe-sticker { height: 52px; padding: 0; border: 2px solid transparent; border-radius: 10px; background: #fff; font-size: 1.7rem; cursor: pointer; }
+.fe-sticker:hover { border-color: var(--fe-primary); }
+.fe-bgs { display: flex; flex-wrap: wrap; gap: 8px; }
+.fe-bgsw { width: 48px; height: 48px; padding: 0; border-radius: 12px; border: 2px solid rgba(29, 36, 51, .18); font-size: 1rem; font-weight: 900; cursor: pointer; }
+.fe-bgsw.on { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--fe-primary); }
+.fe-panel input.fe-bgcustom { padding: 2px; background: #fff; }
+.fe-cut-info { color: var(--fe-muted); }
+
+/* ---- 넓은 화면: 도구 막대 아래에 펼친 칸은 띄운다(카드를 밀지 않게). 오른쪽에 맞춰 뜬다 ---- */
+@media (min-width: 861px) {
+  .fe-pop {
+    position: absolute; z-index: 6; top: calc(100% + 6px); right: 0; width: var(--fe-pop-width, min(100%, 520px));
+    max-height: calc(100vh - 170px); overflow-y: auto;
+    border: 2px solid var(--fe-line); border-radius: 14px; box-shadow: var(--fe-shadow-pop);
+  }
+  /* 배경 제거는 미리보기를 크게 보며 칠하므로 칸을 넓힌다 */
+  .fe-pop:has(.fe-cut) { width: min(100%, 700px); }
+}
+
+/* ---- 잠깐 뜨는 알림(프로젝트에 알림이 따로 없을 때) ---- */
+.fe-toast {
+  position: fixed; left: 50%; bottom: 28px; z-index: 70; transform: translate(-50%, 20px); max-width: calc(100vw - 32px);
+  padding: 10px 18px; border-radius: 12px; background: #1d2433; color: #fff; font-weight: 700; opacity: 0; pointer-events: none;
+  transition: opacity .2s, transform .2s;
+}
+.fe-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- 기본 짜임(editor.mount(host)): 넓으면 도구 막대가 위에 길게, 그 아래 왼쪽에 카드·오른쪽에 옆 메뉴.
+        좁으면 카드 → 도구 막대 → 옆 메뉴 차례로 쌓인다. --fe-sticky-top 으로 붙는 자리를 맞춘다(머리말이 붙어 있는 화면이면 그 높이) ---- */
+.fe-app { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
+.fe-app-stage .fe-stage { max-width: 560px; margin: 0 auto; box-shadow: var(--fe-shadow); }
+.fe-app-panel { padding: 12px; border: 2px solid var(--fe-line); border-radius: 14px; background: #fff; }
+@media (min-width: 861px) {
+  .fe-app { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); --fe-pop-width: calc(50% - 7px); --fe-scroll-top: calc(var(--fe-sticky-top, 8px) + 70px); }
+  .fe-app-tools { grid-column: 1 / -1; grid-row: 1; position: sticky; top: var(--fe-sticky-top, 8px); z-index: 5; }
+  .fe-app-stage, .fe-app-panel { grid-row: 2; }
+  .fe-app-stage { position: sticky; top: calc(var(--fe-sticky-top, 8px) + 70px); }
+  .fe-app-stage .fe-stage { max-width: min(560px, calc(100vh - 100px - var(--fe-sticky-top, 8px))); }
+}
+/* 두 칸이지만 넓지 않으면 텍스트의 도구가 두 줄이 될 수 있다. 무엇을 고르든 높이가 같도록 두 줄 자리를 늘 잡아 둔다. */
+@media (min-width: 861px) and (max-width: 1099px) {
+  .fe-app { --fe-scroll-top: calc(var(--fe-sticky-top, 8px) + 112px); }
+  .fe-app .fe-bar { min-height: 92px; align-content: flex-start; }
+  .fe-app-stage { top: calc(var(--fe-sticky-top, 8px) + 112px); }
+  .fe-app-stage .fe-stage { max-width: min(560px, calc(100vh - 142px - var(--fe-sticky-top, 8px))); }
+}

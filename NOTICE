@@ -1,0 +1,24 @@
+minican
+Copyright (c) 2026 hichoni and minican contributors
+Licensed under the MIT License (see LICENSE).
+
+이 저장소의 코드(src/*.js, src/minicanva.css)와 도형 그림은 이 프로젝트에서 직접 만들었으며 MIT 라이선스를 따릅니다.
+그래픽(스티커)은 사용자의 기기에 들어 있는 이모지 글꼴로 그려지며, 이 저장소에 그림 파일로 들어 있지 않습니다.
+
+함께 배포하거나 실행 중에 불러오는 바깥 자원과 그 조건은 아래와 같습니다.
+
+1. U²-Net 배경 제거 모델 — src/models/u2netp.onnx
+   - Qin et al., "U²-Net: Going Deeper with Nested U-Structure for Salient Object Detection" (2020)
+   - https://github.com/xuebinqin/U-2-Net
+   - Apache License 2.0 — 전문: src/models/LICENSE-U2Net.txt
+   - 파일은 rembg 의 공개 배포본(md5 8e83ca70e441ab06c318d82300c84806)이며 수정하지 않았습니다.
+
+2. onnxruntime-web — 이 저장소에 들어 있지 않습니다.
+   - 배경 제거를 쓸 때 src/segment.js 가 jsDelivr 에서 고정 판을 불러옵니다.
+   - https://github.com/microsoft/onnxruntime — MIT License (Copyright (c) Microsoft Corporation)
+
+3. 시연용 글꼴 — demo/fonts/ (시연 화면에서만 씀. 편집기에는 글꼴이 들어 있지 않습니다)
+   - do-hyeon.ttf — Copyright 2018 The Do Hyeon Project Authors
+   - jua.ttf — Copyright 2018 The BM JUA Project Authors
+   - single-day.ttf — Copyright 2015 DXKorea Inc
+   - 모두 SIL Open Font License 1.1 — 전문: demo/fonts/OFL.txt
