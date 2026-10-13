@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>미니캔</title>
+  <meta name="description" content="글·도형·사진을 놓고 끌어서 카드·포스터·발표 자료를 꾸며요. 여러 장을 만들어 발표하고, 그림이나 영상 파일로 내려받아요." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8E%A8%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../src/minicanva.css" />
+  <link rel="stylesheet" href="./app.css" />
+</head>
+<body class="mc-app">
+  <main id="app"><div class="card center"><p class="muted">불러오는 중이에요…</p></div></main>
+  <script type="module">
+    // 미니캔 앱 시작하기. 들여 쓰는 곳에서는 이 쪽을 본떠 글꼴 목록(그 프로젝트가 가진 글꼴 파일)과 저장소 이름만 바꾼다.
+    // 시연용 글꼴은 demo/fonts/ 의 OFL 글꼴이다(전문은 demo/fonts/OFL.txt).
+    import { startMinican } from './app.js';
+
+    startMinican({
+      fonts: [
+        { id: 'do-hyeon', name: '도현', desc: '굵고 반듯해요', url: '../demo/fonts/do-hyeon.ttf' },
+        { id: 'jua', name: '주아', desc: '둥글고 귀여워요', url: '../demo/fonts/jua.ttf' },
+        { id: 'single-day', name: '싱글데이', desc: '손글씨 느낌', url: '../demo/fonts/single-day.ttf' },
+      ],
+      titleFont: 'do-hyeon',
+      storage: 'minican',
+    });
+  </script>
+</body>
+</html>

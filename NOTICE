@@ -2,7 +2,7 @@ minican
 Copyright (c) 2026 hichoni and minican contributors
 Licensed under the MIT License (see LICENSE).
 
-이 저장소의 코드(src/*.js, src/minicanva.css)와 도형 그림은 이 프로젝트에서 직접 만들었으며 MIT 라이선스를 따릅니다.
+이 저장소의 코드(src/*.js, src/minicanva.css, app/*)와 도형 그림·템플릿·주제 테마는 이 프로젝트에서 직접 만들었으며 MIT 라이선스를 따릅니다.
 그래픽(스티커)은 사용자의 기기에 들어 있는 이모지 글꼴로 그려지며, 이 저장소에 그림 파일로 들어 있지 않습니다.
 
 함께 배포하거나 실행 중에 불러오는 바깥 자원과 그 조건은 아래와 같습니다.

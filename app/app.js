@@ -1,0 +1,1246 @@
+// 미니캔 앱: 내 그림들 → 새 그림 → 꾸미기(그림의 모양은 꾸미는 화면에서 언제든 바꾼다) → 그림·영상 파일로 내려받기.
+// 편집기는 모듈(src/)의 것을 그대로 쓴다. 그림은 이 기기(브라우저의 IndexedDB)에만 저장되고, 서버로는 아무것도 보내지 않는다.
+// 들여 쓰는 곳은 startMinican({ fonts, titleFont, storage, onView })로 시작한다(index.html 이 그 예다).
+// 화면의 짜임: 첫 화면(소개·새로 만들기 + 템플릿 + 내 그림)과 꾸미는 화면(위 막대 · 왼쪽 도구 줄과 옆 칸 · 가운데 그림 · 아래 슬라이드 띠).
+//             꾸미는 화면은 넓은 화면에서 창을 꽉 채우고(스크롤 없음), 좁은 화면에서는 위에서 아래로 쌓인다(app.css).
+import { el, toast, openModal, closeModal } from './ui.js';
+import {
+  createEditor, designView, designToBlob, configure, settings, reshapeItems, layoutList, layoutItems, icon, cleanDesign, hasMotion, playDesign, playTransition,
+  COMBOS, TRANSITIONS, designsToVideo, canMakeVideo, canFilmScenes, filmPlan, MAX_FILM_SECONDS, videoSize, STAYS, DEFAULT_STAY, scenePlayer, dropScene, sceneUrl,
+} from '../src/index.js';
+// 브라우저가 녹화한 WebM 에는 길이가 적혀 있지 않다. 영상 내려받기에 "길이 적어 넣기"를 쓴다.
+import { fixWebmBlob } from './webm.js';
+// 영상 장면을 카메라로 찍을 때 쓰는 카메라(찍기 · 멈추기 · 앞뒤 카메라 바꾸기).
+import { createCamera, canRecord } from './camera.js';
+import {
+  RATIOS, RATIO_KEY, MAX_DESIGNS, MAX_SLIDES, MAX_NAME, EXPORT_SIZES, DEFAULT_EXPORT, EXPORT_KEY, VIDEO_SIZES, DEFAULT_VIDEO, exportSize, ratioOf, newRecord, nextNumber,
+  isBlank, fileName, whenText, sortRecords, addSlide, copySlide, removeSlide, moveSlide,
+  libraryOf, dropPhoto, slideMotion, slideVideo, slideExtra, hasVideo, deckVideos, unusedVideos,
+} from './designs.js';
+import { saveVideo, listVideos, removeVideos } from './videos.js';
+import { zipStore } from './zip.js';
+import { listDesigns, getDesign, putDesign, removeDesign, setStorageName } from './store.js';
+import { setupCanva, useFonts, photoToData, BASIC_GROUP } from './setup.js';
+
+let app = null;
+let onView = () => {};
+const SAVE_DELAY = 500;       // 마지막으로 고친 뒤 이만큼 지나면 이 기기에 저장한다(ms)
+const S = {
+  phase: 'boot',              // 'boot'(그림을 읽는 중) · 'home'
+  list: null,                 // 내 그림들(null 이면 불러오는 중)
+  open: null,
+  error: '',                  // 이 창에서는 기기에 저장할 수 없다
+};
+let homeRail = null;
+/** 지금 무슨 화면인지 적어 둔다(app.css 가 이것을 보고 짜임을 바꾼다): 'home' · 'edit'. 들여 쓰는 곳에도 알린다(onView). */
+function setView(view) {
+  if (view !== 'home' && homeRail) {
+    startScroll = homeRail.track.scrollLeft;
+    homeRail.dispose();
+    homeRail = null;
+  }
+  app.dataset.view = view;
+  document.body.classList.toggle('cv-editing', view === 'edit');
+  document.documentElement.classList.toggle('cv-editing', view === 'edit');      // 꾸미는 동안에는 당겨서 새로 고침이 되지 않게(app.css)
+  try { onView(view); } catch (ex) { console.warn(ex); }
+}
+// 꾸미는 화면이 창을 꽉 채우는 앱 짜임인지(app.css 의 넓은 화면 조건과 같다). 아니면 위에서 아래로 쌓인다.
+const WIDE = window.matchMedia('(min-width: 900px) and (min-height: 520px)');
+
+// ---------- 움직임: 화면이 바뀔 때 뚝 끊기지 않게 ----------
+// 움직임을 줄이도록 설정한 기기에서는 아무것도 움직이지 않는다(바로 바뀐다).
+const CALM = window.matchMedia('(prefers-reduced-motion: reduce)');
+let moving = false;           // 화면을 넘기는 중(그동안은 또 넘기지 않는다)
+let moveNo = 0;
+/**
+ * 화면을 통째로 바꾼다(첫 화면 ↔ 꾸미는 화면). 브라우저가 할 수 있으면 앞 화면에서 뒤 화면으로 부드럽게 넘긴다(View Transitions).
+ * kind: 'open'(그림을 연다) · 'close'(목록으로 돌아간다) · 'page'(그 밖). 어떻게 움직이는지는 app.css 에 있다.
+ * from: 앞 화면에서 뒤 화면의 그림으로 이어질 작은 그림(목록의 그 그림이 커지면서 꾸미는 화면의 그림이 된다).
+ */
+function transit(update, kind = 'page', from = null) {
+  if (!document.startViewTransition || CALM.matches || document.visibilityState !== 'visible') { update(); return; }
+  const root = document.documentElement;
+  const no = ++moveNo;
+  const done = () => {
+    if (no !== moveNo) return;             // 그 사이 다른 화면으로 또 넘어갔다: 그쪽이 치운다
+    delete root.dataset.cvMove;
+    for (const n of document.querySelectorAll('.cv-moving')) n.classList.remove('cv-moving');
+  };
+  moving = true;
+  root.dataset.cvMove = kind;
+  if (from) from.classList.add('cv-moving');
+  let move = null;
+  try {
+    move = document.startViewTransition(() => {
+      try { update(); } catch (ex) { console.error(ex); throw ex; } finally { moving = false; }
+    });
+  } catch (ex) {
+    console.warn(ex);                      // 넘기기를 시작하지 못했으면 그냥 바꾼다
+    moving = false;
+    done();
+    update();
+    return;
+  }
+  move.ready.catch(() => {});              // 넘기기를 건너뛰어도(창이 가려지는 등) 화면은 바뀐다
+  move.finished.then(done, done);
+}
+/** 화면의 한 조각이 바뀌었을 때 살짝 움직여 보여 준다(끝나면 흔적이 남지 않는다). */
+function ease(node, frames, ms = 220) {
+  if (!node || !node.animate || CALM.matches) return;
+  node.animate(frames, { duration: ms, easing: 'cubic-bezier(.2, .7, .2, 1)' });
+}
+/** 그림이 바뀌었다: dir 1 이면 오른쪽에서, -1 이면 왼쪽에서 들어오고, 0 이면 제자리에서 나타난다. */
+const slideIn = (node, dir = 0) => ease(node, [
+  { opacity: dir ? 0 : 0.3, transform: dir ? `translateX(${dir * 24}px)` : 'scale(.985)' },
+  { opacity: 1, transform: 'none' },
+]);
+const stageCard = (O) => O.editor.stage.querySelector('.fe-card');
+// 단추에 쓰는 작은 그림: 편집기 모듈의 아이콘 한 세트를 화면 전체가 함께 쓴다(src/icons.js. 선 그림, 글자 색을 따라간다).
+const ic = (name) => icon(name, 'cv-ic');
+/** 단추의 속: 작은 그림 + 글. 글만 바꿀 때는 relabel 을 쓴다(작은 그림은 그대로 둔다). */
+const face = (icon, text) => [ic(icon), el('span', { class: 'cv-lbl', text })];
+const labelOf = (btn) => (btn.querySelector('.cv-lbl') || btn).textContent;
+const relabel = (btn, text) => { (btn.querySelector('.cv-lbl') || btn).textContent = text; };
+
+// ---------- 시작 ----------
+/** 내 그림들을 이 기기에서 다시 모은다. */
+async function refresh() {
+  S.list = null;
+  render();
+  try {
+    S.list = await listDesigns();
+    S.error = '';
+  } catch (ex) {
+    console.error(ex);
+    S.list = [];
+    S.error = '이 창에서는 기기에 저장할 수 없어요. 그림을 만들 수는 있지만 새로 고침하면 사라져요. 다 만들면 바로 내려받아요.';
+  }
+  S.phase = 'home';
+  render();
+}
+/** 목록의 그 그림을 새 기록으로 바꿔 끼운다(없으면 맨 앞에 더한다). */
+function upsert(record) {
+  if (!S.list) return;
+  const at = S.list.findIndex((r) => r.id === record.id);
+  if (at >= 0) S.list[at] = record; else S.list.unshift(record);
+  S.list = sortRecords(S.list);
+}
+
+// 지난번에 고른 그림 모양(새 그림은 그 모양으로 시작한다). 기억하지 못하는 창에서는 정사각형.
+function lastRatio() {
+  try { return ratioOf(localStorage.getItem(RATIO_KEY)).id; } catch { return RATIOS[0].id; }
+}
+function keepRatio(id) {
+  try { localStorage.setItem(RATIO_KEY, id); } catch { /* 기억하지 못해도 괜찮다 */ }
+}
+
+// ---------- 첫 화면: 소개 + 새로 만들기(빈 그림 · 템플릿) 띠 · 내 그림 ----------
+const POINTS = [
+  ['template', '템플릿 골라 글 바꾸기'],
+  ['screen', '여러 장 만들고 발표하기'],
+  ['shapes', '글·도형·사진 끌어 놓기'],
+  ['check', '이 기기에 자동 저장'],
+];
+// 첫 화면의 "템플릿으로 시작하기"는 두 칸이다: 주제 테마(표지 9종, 발표 화면 모양) · 기본 짜임(6종).
+const STARTS = [['theme', '주제 테마'], ['basic', '기본 짜임']];
+let startTab = 'theme';
+let startScroll = 0;
+/** 한 줄 템플릿: 터치·트랙패드·키보드는 브라우저의 가로 스크롤을 그대로 쓴다. */
+function mountStartRail(track, previous, next) {
+  let frame = 0;
+  const update = () => {
+    frame = 0;
+    if (!track.isConnected) return;
+    const edge = Math.max(0, track.scrollWidth - track.clientWidth);
+    previous.disabled = track.scrollLeft <= 1;
+    next.disabled = track.scrollLeft >= edge - 1;
+    startScroll = track.scrollLeft;
+  };
+  const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+  const scroll = (direction) => {
+    track.scrollBy({ left: direction * Math.max(150, track.clientWidth * .8), behavior: CALM.matches ? 'auto' : 'smooth' });
+  };
+  previous.addEventListener('click', () => scroll(-1));
+  next.addEventListener('click', () => scroll(1));
+  track.addEventListener('scroll', schedule, { passive: true });
+  track.addEventListener('focusin', (event) => {
+    const card = event.target.closest('.cv-start');
+    if (!card) return;
+    const bounds = track.getBoundingClientRect();
+    const item = card.getBoundingClientRect();
+    const shift = item.left < bounds.left + 4 ? item.left - bounds.left - 4
+      : item.right > bounds.right - 4 ? item.right - bounds.right + 4 : 0;
+    // 초점을 옮길 때는 즉시 노출한다. 위아래 페이지 위치는 바꾸지 않는다.
+    if (shift) track.scrollBy({ left: shift, behavior: 'auto' });
+    schedule();
+  });
+  const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(schedule) : null;
+  if (observer) observer.observe(track);
+  else window.addEventListener('resize', schedule);
+  track.scrollLeft = startScroll;
+  update();
+  return { track, dispose() {
+    observer?.disconnect();
+    window.removeEventListener('resize', schedule);
+    if (frame) cancelAnimationFrame(frame);
+  } };
+}
+// 템플릿의 작은 그림의 모양: 테마는 그것으로 시작할 때의 모양(16:9), 기본 짜임은 정사각형.
+const thumbAspect = (layout) => (layout?.ratio ? ratioOf(layout.ratio).aspect : 1);
+function layoutThumb(layout) {
+  const aspect = thumbAspect(layout);
+  configure({ aspect });
+  return fitView(designView({ bg: layout.bg, items: layoutItems(layout.id) }), aspect);
+}
+/**
+ * 새 그림을 연다. layoutId 를 주면 그 템플릿을 깔고 시작한다. 모양은 템플릿에 적힌 것(테마는 16:9), 없으면 지난번에 고른 것.
+ * tile 은 누른 템플릿 단추(그 작은 그림이 커지면서 열린다).
+ */
+function startNew(layoutId = '', tile = null) {
+  if (S.open || !S.list || moving) return;
+  const layout = layoutId ? layoutList().find((l) => l.id === layoutId) : null;
+  const record = newRecord(layout?.ratio || lastRatio(), nextNumber(S.list || []));
+  if (layout) {
+    setupCanva(record.ratio);          // 템플릿의 도형 높이는 그림의 모양에 맞춰 만들어진다
+    record.slides = [{ bg: layout.bg, items: layoutItems(layout.id) }];
+  }
+  // 작은 그림과 새 그림의 모양이 같을 때에만 그 그림을 키워서 연다(모양이 다르면 찌그러져 보인다).
+  const from = Math.abs(ratioOf(record.ratio).aspect - thumbAspect(layout)) < 0.01 ? tile?.querySelector('.fe-card') : null;
+  transit(() => { if (!S.open) openDesign(record, true); }, 'open', from);
+}
+
+// 처음 불러온 그림들은 살짝 떠오르며 나타난다(그 뒤에 다시 그릴 때는 움직이지 않는다).
+let wasLoading = true;
+function render() {
+  if (S.open) return;
+  const oldRail = app.querySelector('.cv-start-list');
+  if (oldRail?.dataset.starts === startTab) startScroll = oldRail.scrollLeft;
+  const focused = document.activeElement?.closest('.cv-start');
+  const focusedLayout = oldRail?.contains(focused) ? focused.dataset.layout : '';
+  const focusedControl = document.activeElement?.closest('.cv-start-arrow, .cv-seg-btn');
+  const focusedSelector = app.contains(focusedControl) ? focusedControl.classList.contains('cv-start-prev') ? '.cv-start-prev'
+    : focusedControl.classList.contains('cv-start-next') ? '.cv-start-next'
+      : `.cv-seg-btn[data-starts="${CSS.escape(focusedControl.dataset.starts)}"]` : '';
+  homeRail?.dispose();
+  homeRail = null;
+  setView('home');
+  const loading = S.list === null;
+  const list = S.list || [];
+  const full = list.length >= MAX_DESIGNS;
+  // 주제 테마는 표지만 보여 준다(내용 장은 꾸미는 화면의 템플릿 칸에서 넣는다). 이름은 테마의 이름.
+  const starts = startTab === 'theme'
+    ? layoutList().filter((l) => l.cover).map((l) => [l, l.group])
+    : layoutList().filter((l) => l.group === BASIC_GROUP).map((l) => [l, l.name]);
+  const newBtn = (cls) => el('button', { class: `btn ${cls}`, type: 'button', disabled: loading || full, onClick: () => startNew() }, ic('plus'), el('span', { text: '새 그림 만들기' }));
+
+  // ① 공통 소개 카드: 도구 이름 + 새로 만들기 + 할 수 있는 일.
+  const hero = el('section', { class: 'cv-hero', 'aria-labelledby': 'canva-title' }, el('div', { class: 'cv-hero-in' },
+    el('div', { class: 'cv-hero-text' },
+      el('div', { class: 'cv-home-heading' },
+        el('h1', { id: 'canva-title', class: 'cv-home-title' }, el('span', { class: 'cv-home-icon', 'aria-hidden': 'true' }, ic('shapes')), '미니캔'),
+        el('p', { class: 'cv-hero-kicker', text: '글·도형·사진으로 생각 펼치기' })),
+      el('p', { class: 'cv-hero-lead', text: '카드·포스터·발표 자료를 만들어요. 완성하면 그림이나 영상 파일로 내려받아요.' })),
+    el('div', { class: 'cv-hero-go' }, newBtn('cv-cta cv-new-btn'),
+      full ? el('p', { class: 'cv-hero-full', text: `그림은 ${MAX_DESIGNS}장까지 저장돼요. 안 쓰는 그림을 지워 주세요.` }) : null),
+    el('ul', { class: 'cv-points' }, ...POINTS.map(([pic, text]) => el('li', {}, el('span', { class: 'cv-point-icon', 'aria-hidden': 'true' }, ic(pic)),
+      text)))));
+
+  // 템플릿은 소개 카드 아래의 같은 본문 폭에서 골라 바로 시작한다.
+  const track = el('div', { id: 'canva-template-list', class: `cv-start-list ${startTab}`, dataset: { starts: startTab }, role: 'group', 'aria-label': `${STARTS.find(([id]) => id === startTab)[1]} 템플릿` }, ...starts.map(([l, name]) => el('button', {
+    class: 'cv-start', type: 'button', disabled: loading || full, dataset: { layout: l.id }, onClick: (e) => startNew(l.id, e.currentTarget),
+  }, el('span', { class: 'cv-start-view', 'aria-hidden': 'true' }, layoutThumb(l)), el('b', { text: name }))));
+  const previous = el('button', { class: 'cv-start-arrow cv-start-prev', type: 'button', disabled: true, 'aria-label': '이전 템플릿 보기', 'aria-controls': 'canva-template-list', title: '이전 템플릿 보기' }, ic('left'));
+  const next = el('button', { class: 'cv-start-arrow cv-start-next', type: 'button', 'aria-label': '다음 템플릿 보기', 'aria-controls': 'canva-template-list', title: '다음 템플릿 보기' }, ic('right'));
+  const templates = el('section', { class: 'cv-starts', 'aria-labelledby': 'canva-templates' },
+      el('div', { class: 'cv-starts-head' }, el('h2', { id: 'canva-templates', text: '템플릿으로 시작하기' }),
+        el('div', { class: 'cv-starts-tools' },
+        el('div', { class: 'cv-seg', role: 'group', 'aria-label': '템플릿 종류' }, ...STARTS.map(([id, name]) => el('button', {
+          class: `cv-seg-btn${startTab === id ? ' on' : ''}`, type: 'button', 'aria-pressed': String(startTab === id), dataset: { starts: id },
+          onClick: () => {
+            if (startTab === id) return;
+            startTab = id;
+            startScroll = 0;
+            render();
+            document.querySelector('.cv-seg-btn.on')?.focus({ preventScroll: true });   // 다시 그리면서 사라진 초점을 고른 단추에 돌려놓는다
+          },
+        }, name))),
+          el('div', { class: 'cv-start-arrows', role: 'group', 'aria-label': '템플릿 좌우 이동' }, previous, next))),
+      track);
+
+  // ② 내 그림: 불러온다 → 없으면 없다고 알리고 새로 만들게 한다. 그림은 이 기기에만 저장된다.
+  const arrive = wasLoading && !loading;
+  wasLoading = loading;
+  const mine = el('section', { class: `cv-mine${arrive ? ' cv-arrive' : ''}` },
+    el('div', { class: 'cv-sec-head' },
+      el('h2', { text: loading || !list.length ? '내 그림' : `내 그림 ${list.length}장` }),
+      loading ? null : el('div', { class: 'cv-account solo' },
+        el('span', { class: 'cv-account-icon', 'aria-hidden': 'true' }, ic('screen')),
+        el('span', { class: 'cv-account-text' }, el('b', { text: '이 기기에 저장돼요.' }), ' 완성한 그림은 내려받아 두세요.'))));
+  if (loading) {
+    mine.append(el('div', { class: 'cv-state', role: 'status' },
+      el('span', { class: 'cv-spin', 'aria-hidden': 'true' }),
+      el('b', { text: '이 기기에 저장된 그림을 불러오는 중이에요…' })));
+  } else if (!list.length) {
+    mine.append(el('div', { class: 'cv-state cv-empty', role: 'status' },
+      el('span', { class: 'cv-state-icon', 'aria-hidden': 'true' }, el('i'), el('i'), el('i')),
+      el('b', { text: '이 기기에 저장된 그림이 없어요' }),
+      el('span', { class: 'muted', text: '새 그림을 만들면 여기에 저절로 저장돼요. 위의 템플릿으로 시작해도 좋아요.' }),
+      newBtn('btn-primary cv-empty-btn')));
+  } else {
+    mine.append(el('div', { class: 'cv-list' }, ...list.map((r) => itemCard(r))));
+  }
+  if (S.error) mine.append(el('p', { class: 'warn-box', text: S.error }));
+
+  app.replaceChildren(hero, el('div', { class: 'cv-home' }, templates, mine,
+    el('p', { class: 'cv-note', text: '그림은 이 기기(이 브라우저)에만 저장돼요(서버로 올라가지 않아요). 다른 기기에서는 보이지 않으니, 다 만든 그림은 내려받아 두세요. 그림의 모양(정사각형·세로·가로·길게)은 꾸미는 화면에서 언제든 바꿀 수 있어요.' })));
+  homeRail = mountStartRail(track, previous, next);
+  if (focusedLayout) track.querySelector(`[data-layout="${CSS.escape(focusedLayout)}"]`)?.focus({ preventScroll: true });
+  else if (focusedSelector) templates.querySelector(focusedSelector)?.focus({ preventScroll: true });
+}
+
+// 작은 그림을 4:3 칸 안에 찌그러지지 않게 넣는다: 칸보다 납작한 그림은 너비에, 아니면 높이에 맞춘다(app.css 의 .is-wide).
+const THUMB_BOX = 4 / 3;
+function fitView(view, aspect) {
+  view.style.setProperty('--fe-ratio', String(aspect));
+  view.style.aspectRatio = String(aspect);
+  view.classList.toggle('is-wide', aspect >= THUMB_BOX);
+  return view;
+}
+function thumb(record) {
+  setupCanva();
+  return fitView(designView(record.slides[0], { empty: '빈 그림' }), ratioOf(record.ratio).aspect);
+}
+function itemCard(record) {
+  const del = el('button', {
+    class: 'cv-item-del', type: 'button', title: '이 그림 지우기',
+    onClick: async () => {
+      if (del.dataset.armed !== '1') {
+        del.dataset.armed = '1';
+        relabel(del, '한 번 더 누르면 지워져요');
+        del.classList.add('armed');
+        card.classList.add('arming');        // 그동안 다른 단추를 감춘다(같은 자리를 한 번 더 눌렀을 때 "꾸미기"가 눌리지 않게)
+        setTimeout(() => { if (del.isConnected) { del.dataset.armed = ''; relabel(del, '지우기'); del.classList.remove('armed'); card.classList.remove('arming'); } }, 4000);
+        return;
+      }
+      busy(true);
+      try {
+        await removeDesign(record.id);
+      } catch (ex) {
+        console.error(ex);
+        toast('지우지 못했어요. 새로 고침하고 다시 해 봐요.', 4000);
+        busy(false);
+        return;
+      }
+      if (S.list) S.list = S.list.filter((r) => r.id !== record.id);
+      tidyVideos(record.id, [], deckVideos(record.slides));      // 그 그림에 딸린 영상 파일도 이 기기에서 지운다
+      toast('그림을 지웠어요.');
+      render();
+    },
+  }, ...face('trash', '지우기'));
+  const open = (btn) => openEntry(record, btn);
+  const edit = el('button', { class: 'btn btn-primary small cv-item-open', type: 'button', onClick: () => open(edit) }, '꾸미기');
+  const busy = (on) => { for (const b of [edit, del, card.querySelector('.cv-thumb')]) if (b) b.disabled = on; };
+  const pages = record.slides.length;
+  const card = el('article', { class: 'cv-item', dataset: { id: record.id } },
+    el('button', { class: 'cv-thumb', type: 'button', 'aria-label': `${record.name} 열기`, onClick: () => open(edit) }, thumb(record),
+      pages > 1 ? el('span', { class: 'cv-pages', text: `${pages}장` }) : null),
+    el('div', { class: 'cv-item-body' },
+      el('span', { class: 'cv-item-name', text: record.name }),
+      el('span', { class: 'cv-item-when' }, el('span', { text: ratioOf(record.ratio).name }), el('span', { text: whenText(record.updatedAt) })),
+      el('div', { class: 'cv-item-row' }, edit, del)));
+  return card;
+}
+// 목록의 그림을 연다. 이 기기에 저장된 가장 새것을 읽는다(읽지 못하면 목록이 기억하는 것).
+async function openEntry(entry, btn) {
+  if (S.open || moving) return;
+  btn.disabled = true;
+  let record = entry;
+  try { record = (await getDesign(entry.id)) || entry; } catch (ex) { console.warn(ex); }
+  const ready = () => !S.open && S.phase === 'home';
+  if (!ready()) return;
+  upsert(record);
+  // 목록의 그 작은 그림이 커지면서 꾸미는 화면의 그림이 된다.
+  transit(() => { if (ready()) openDesign(record, false); }, 'open', btn.closest('.cv-item')?.querySelector('.cv-thumb .fe-card'));
+}
+
+// ---------- 꾸미기 ----------
+function openDesign(record, isNew) {
+  setupCanva(record.ratio);
+  const O = {
+    record: { ...record }, timer: 0, dirty: false, saved: !isNew, closed: false, editor: null, status: null, nameInput: null,
+    // 슬라이드: slides 는 모든 장, at 은 지금 꾸미는 장의 번호. 편집기는 한 번에 한 장만 꾸민다(장을 바꿀 때 바꿔 끼운다).
+    slides: record.slides.map((d) => ({ bg: d.bg, items: d.items, ...slideExtra(d) })), at: 0, strip: null, thumbTimer: 0, shapes: null, shell: null, alert: null,
+  };
+  delete O.record.slides;                // 슬라이드는 O.slides 가 맡는다(저장할 때 다시 넣는다)
+  S.open = O;
+  const first = isNew ? '꾸미기 시작하면 저절로 저장돼요' : '이 기기에 저장돼 있어요';
+  O.status = el('span', { class: 'cv-status', role: 'status', text: first, title: first });
+  // 저장하지 못했을 때는 위 막대 아래에 띠로 한 번 더 알린다(위 막대의 글은 자리가 좁아 잘릴 수 있다).
+  O.alert = el('p', { class: 'cv-alert', 'aria-hidden': 'true', hidden: true });
+  const name = O.nameInput = el('input', {
+    class: 'cv-name', type: 'text', value: record.name, maxlength: String(MAX_NAME), 'aria-label': '그림 이름', title: '그림 이름(눌러서 바꿔요)',
+    onInput: () => { O.record.name = name.value; touched(O); },
+    onKeydown: (e) => { if (e.key === 'Enter') name.blur(); },
+  });
+  O.editor = createEditor({
+    design: O.slides[0],
+    onChange: () => touched(O),
+    uploadImage: photoToData,
+    notify: toast,
+    // 올린 파일 목록: 이 그림에 올린 사진들(슬라이드가 여러 장이어도 목록은 하나다). 저장할 때 편집기에서 꺼내 기록에 넣는다.
+    uploads: libraryOf(record.uploads, record.slides),
+    // 지금 꾸미는 장 말고 다른 장에서 그 사진을 쓴 곳의 수("쓰는 중" 표시와, 지우기 전에 알려 줄 때 쓴다).
+    usedElsewhere: (url) => O.slides.reduce((n, d, i) => n + (i === O.at ? 0 : d.items.filter((it) => it && it.t === 'image' && it.url === url).length), 0),
+    // 올린 파일을 지웠다: 다른 장에서 쓴 것도 지운다(지금 장은 편집기가 지운다). 띠의 작은 그림을 다시 그린다.
+    // 움직임 칸의 "모든 장에 똑같이"
+    onMotionAll: (motion) => applyMotionAll(O, motion),
+    // 영상 장면(그 장의 바탕에 까는 영상): 파일은 이 기기에 두고(videos.js), 어느 그림에 딸린 것인지 함께 적는다.
+    // 저장하지 못하면 오류가 나고, 편집기가 영상을 넣지 않은 채 알린다(저장되지 않은 영상을 그림에 적어 두지 않는다).
+    saveVideo: (made) => saveVideo({ blob: made.blob, design: O.record.id, seconds: made.seconds }),
+    createCamera: canRecord() ? createCamera : null,
+    videoNote: '영상 파일은 이 기기에만 저장돼요. 다른 기기에서 이 그림을 열면 영상 자리가 비어 보여요.',
+    videoHint: canFilmScenes() ? '영상은 "발표"할 때와 영상으로 내려받을 때 소리와 함께 틀어져요. 그림으로 내려받으면 첫 모습이 나와요.' : '',
+    onRemoveUpload: (img) => {
+      const next = dropPhoto(O.slides, img.url);
+      if (next === O.slides) return;
+      O.slides = next;
+      renderStrip(O);
+    },
+    // 실행 취소·다시 실행으로 그림의 모양이 되돌아갔을 때: 고른 모양 표시와 기록을 맞춘다.
+    onAspect: (aspect) => {
+      O.record.ratio = RATIOS.reduce((best, r) => (Math.abs(r.aspect - aspect) < Math.abs(best.aspect - aspect) ? r : best)).id;
+      keepRatio(O.record.ratio);
+      markRatio(O, shapes);
+    },
+  });
+  const down = el('button', { class: 'btn btn-primary cv-down-btn', type: 'button', title: '그림이나 영상으로 내려받아요(크기를 고를 수 있어요)', onClick: () => askDownload(O, down) }, ...face('download', '내려받기'));
+  const show = el('button', { class: 'btn cv-show-btn', type: 'button', title: '화면 가득 보여 줘요', onClick: () => present(O) }, ...face('play', '발표'));
+  // 그림의 모양: 꾸미는 화면 안에서 바로 바꾼다. 놓아 둔 도형과 사진은 찌그러지지 않게 편집기가 맞춰 준다.
+  const shapes = el('div', { class: 'cv-shapes', role: 'group', 'aria-label': '그림의 모양' }, ...RATIOS.map((r) => {
+    const icon = el('span', { class: 'cv-shape-icon', 'aria-hidden': 'true' });
+    icon.style.aspectRatio = String(r.aspect);
+    return el('button', {
+      class: 'cv-shape', type: 'button', title: `${r.name} (${r.id}) · ${r.desc}`, 'aria-label': r.name, dataset: { ratio: r.id },
+      onClick: () => setRatio(O, r.id, shapes),
+    }, icon, el('span', { class: 'cv-shape-name', text: r.name }));
+  }));
+  O.shapes = shapes;
+  // 위 막대: 나가기 · 이름 · 저장 상태 | 모양 · 발표 · 내려받기
+  const bar = el('header', { class: 'cv-bar' },
+    el('button', { class: 'btn btn-ghost cv-back', type: 'button', title: '저장하고 내 그림으로 돌아가요', onClick: (e) => closeDesign(O, e.currentTarget) }, ...face('back', '내 그림')),
+    el('span', { class: 'cv-bar-sep', 'aria-hidden': 'true' }),
+    name, O.status, el('span', { class: 'cv-bar-gap' }), shapes, el('span', { class: 'cv-bar-sep', 'aria-hidden': 'true' }), show, down);
+  const shell = editorShell(O, bar);
+  markRatio(O, shapes);
+  setView('edit');
+  app.replaceChildren(shell);
+  O.editor.refresh();                    // 화면에 놓은 뒤에 다시 그려서 테두리·손잡이의 자리를 맞춘다
+  renderStrip(O);
+  window.scrollTo({ top: 0 });
+}
+
+/**
+ * 꾸미는 화면의 틀: 위 막대(bar) · 왼쪽 도구 줄과 옆 칸 · 가운데(고른 요소의 도구 막대 · 그림 · 슬라이드 띠). O.strip · O.shell 을 채운다.
+ * O 에는 editor 와 alert(저장하지 못했을 때의 띠)가 있어야 한다.
+ */
+function editorShell(O, bar) {
+  // 왼쪽: 도구 줄(템플릿·텍스트·요소·업로드·배경·레이어)과 옆 칸. 고른 도구를 한 번 더 누르거나 ‹ 를 누르면 옆 칸을 접는다(그림이 넓어진다).
+  // 고른 요소의 펼친 칸(색·위치·투명도 …)은 넓은 화면에서 옆 칸 자리에 뜬다(그림을 가리지 않게. app.css). 그래서 옆 칸을 접을 때는 닫고, 열릴 때는 편다.
+  const pop = O.editor.toolbar.querySelector('.fe-pop');
+  const closePop = () => { if (pop && !pop.hidden && WIDE.matches) pop.querySelector('.fe-pop-close')?.click(); };
+  const fold = el('button', { class: 'cv-fold', type: 'button', onClick: () => setFold(!shell.classList.contains('folded')) }, ic('back'));
+  const setFold = (want) => {
+    const on = want && WIDE.matches;       // 쌓는 화면에는 접을 옆 칸이 없다
+    if (on) closePop();
+    shell.classList.toggle('folded', on);
+    fold.title = on ? '옆 칸 펴기' : '옆 칸 접기';
+    fold.setAttribute('aria-label', fold.title);
+    fold.setAttribute('aria-expanded', String(!on));
+  };
+  const side = el('aside', { class: 'cv-side', 'aria-label': '넣을 것 고르기' }, O.editor.panel);
+  side.addEventListener('click', (e) => {
+    const tab = e.target.closest('.fe-tab');
+    if (!tab) return;
+    const same = tab.classList.contains('on');
+    const wasFolded = shell.classList.contains('folded');
+    closePop();
+    setFold(!wasFolded && same);
+    // 다른 도구를 골랐으면(편집기가 옆 칸을 다시 그린 뒤에) 그 내용이 살짝 떠오른다.
+    if (!same || wasFolded) requestAnimationFrame(() => ease(side.querySelector('.fe-tabbody'), [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], 200));
+  }, true);                              // 편집기가 옆 칸을 다시 그리기 전에(고른 도구가 무엇이었는지 보고) 정한다
+  let popOpen = false;
+  if (pop) {
+    new MutationObserver(() => {
+      const open = !pop.hidden;
+      if (open && shell.classList.contains('folded')) setFold(false);
+      if (open && !popOpen && WIDE.matches) ease(pop, [{ opacity: 0, transform: 'translateX(-12px)' }, { opacity: 1, transform: 'none' }], 200);
+      popOpen = open;
+    }).observe(pop, { attributes: true, attributeFilter: ['hidden'] });
+  }
+  // 가운데: 고른 요소의 도구 막대 · 그림 · 슬라이드 띠(지금 장 고르기, 장 더하기·복제·옮기기·지우기)
+  O.strip = el('div', { class: 'cv-strip', role: 'group', 'aria-label': '슬라이드' });
+  const work = el('section', { class: 'cv-work', 'aria-label': '그림' },
+    el('div', { class: 'cv-tools' }, O.editor.toolbar),
+    el('div', { class: 'cv-canvas' }, O.editor.stage),
+    O.strip, fold);
+  const shell = O.shell = el('div', { class: 'cv-app' }, bar, O.alert, side, work);
+  setFold(false);
+  return shell;
+}
+
+// ---------- 슬라이드 ----------
+/**
+ * 영상을 찍거나 넣는 중이면 알리고 true 를 돌려준다. 그동안 다른 장으로 가거나 나가면 찍던 것이 사라지므로,
+ * 장을 바꾸는 일 · 발표 · 내려받기 · 나가기는 이것을 먼저 보고 미룬다.
+ */
+function videoBusy(O) {
+  const why = O.editor?.busy() || '';
+  if (!why) return false;
+  toast(why === 'recording' ? '영상을 찍는 중이에요. 먼저 "멈추기"를 눌러요.' : '영상을 넣는 중이에요. 잠깐만 기다려요.', 3500);
+  return true;
+}
+/** 지금 모든 장(꾸미는 중인 장은 편집기에서 꺼낸 것). */
+function currentSlides(O) {
+  return O.slides.map((d, i) => (i === O.at && !O.viewing ? O.editor.getDesign() : d));
+}
+// sceneEdge: 영상 장면의 첫 모습을 그릴 때의 긴 쪽(px). 띠의 작은 그림은 작게(목록 · 꾸미기 판과 같은 그림을 쓴다), 발표 화면은 크게.
+function slideView(design, aspect, sceneEdge = 640) {
+  const view = designView(design, { sceneEdge });
+  view.style.setProperty('--fe-ratio', String(aspect));
+  view.style.aspectRatio = String(aspect);
+  return view;
+}
+// 띠의 작은 그림에 붙이는 이름: 몇 번째 장인지 + 영상 장면 · 움직임이 있는지.
+function slideLabel(i, design) {
+  const marks = [hasVideo(design) ? '영상 있음' : '', hasMotion(design) ? '움직임 있음' : ''].filter(Boolean);
+  return `${i + 1}번째 장${marks.length ? ` (${marks.join(' · ')})` : ''}`;
+}
+function renderStrip(O) {
+  if (!O.strip || O.closed) return;
+  const aspect = ratioOf(O.record.ratio).aspect;
+  const n = O.slides.length;
+  const full = n >= MAX_SLIDES;
+  const left = O.strip.querySelector('.cv-slide-list')?.scrollLeft || 0;
+  // 움직임(발표할 때)이 있는 장에는 작은 표시가 붙는다
+  const thumbs = O.slides.map((d, i) => {
+    const design = i === O.at ? O.editor.getDesign() : d;
+    const moves = hasMotion(design);
+    return el('button', {
+      class: `cv-slide${i === O.at ? ' on' : ''}${moves ? ' moves' : ''}${hasVideo(design) ? ' film' : ''}`, type: 'button', 'aria-label': slideLabel(i, design),
+      'aria-pressed': String(i === O.at), dataset: { slide: String(i) },
+      onClick: () => goSlide(O, i),
+    }, el('span', { class: 'cv-slide-no', text: String(i + 1) }), el('span', { class: 'cv-slide-view', 'aria-hidden': 'true' }, slideView(design, aspect)),
+    el('span', { class: 'cv-slide-vd', 'aria-hidden': 'true' }, ic('video')),
+    el('span', { class: 'cv-slide-fx', 'aria-hidden': 'true' }, ic('motion')));
+  });
+  const tool = (icon, label, title, onClick, disabled = false) => el('button', { class: 'cv-slide-tool', type: 'button', title, 'aria-label': title, disabled, onClick }, ...face(icon, label));
+  const del = tool('trash', '지우기', '이 장 지우기', () => {
+    if (del.dataset.armed !== '1') {
+      del.dataset.armed = '1';
+      relabel(del, '한 번 더 누르면 지워져요');
+      del.classList.add('danger');
+      del.parentElement.classList.add('arming');      // 그동안 다른 단추를 감춘다(같은 자리를 한 번 더 눌렀을 때 "복제"가 눌리지 않게)
+      setTimeout(() => { if (del.isConnected) renderStrip(O); }, 4000);
+      return;
+    }
+    changeSlides(O, removeSlide);
+  }, n === 1 && !O.editor.getDesign().items.length && !hasVideo(O.editor.getDesign()));
+  O.strip.replaceChildren(
+    el('div', { class: 'cv-slide-list' }, ...thumbs,
+      el('button', {
+        class: 'cv-slide add', type: 'button', disabled: full, title: full ? `슬라이드는 ${MAX_SLIDES}장까지예요` : '새 장 더하기', 'aria-label': '새 장 더하기',
+        // 새 장은 지금 장의 배경과 움직임(조합 효과 · 전환 효과)을 이어받는다
+        onClick: () => changeSlides(O, (slides, at) => addSlide(slides, at, slides[at]?.bg, slides[at])),
+      }, el('span', { class: 'cv-slide-plus', 'aria-hidden': 'true' }, ic('plus')), el('span', { class: 'cv-slide-add-text', text: '새 장' }))),
+    el('div', { class: 'cv-slide-tools' },
+      el('span', { class: 'cv-slide-count', text: `${O.at + 1} / ${n}장` }),
+      tool('left', '앞으로', '이 장을 앞으로 옮기기', () => changeSlides(O, (slides, at) => moveSlide(slides, at, -1)), O.at === 0),
+      tool('right', '뒤로', '이 장을 뒤로 옮기기', () => changeSlides(O, (slides, at) => moveSlide(slides, at, 1)), O.at === n - 1),
+      tool('copy', '복제', '이 장을 복제하기', () => changeSlides(O, copySlide), full),
+      del));
+  // 띠를 다시 그려도 옆으로 넘겨 둔 자리는 그대로 두고, 고른 장이 안 보일 때에만 그쪽으로 (부드럽게) 넘긴다.
+  const list = O.strip.querySelector('.cv-slide-list');
+  const on = list.querySelector('.cv-slide.on');
+  list.scrollLeft = left;
+  if (on) {
+    const box = list.getBoundingClientRect();
+    const r = on.getBoundingClientRect();
+    const by = r.left < box.left + 8 ? r.left - box.left - 8 : r.right > box.right - 8 ? r.right - box.right + 8 : 0;
+    if (by) list.scrollBy({ left: by, behavior: CALM.matches ? 'auto' : 'smooth' });
+  }
+}
+// 지금 장의 작은 그림만 다시 그린다(꾸미는 동안 띠를 통째로 다시 그리지 않는다).
+function refreshThumb(O) {
+  const box = O.strip?.querySelector(`.cv-slide[data-slide="${O.at}"] .cv-slide-view`);
+  if (!box || O.closed) return;
+  const design = O.editor.getDesign();
+  box.replaceChildren(slideView(design, ratioOf(O.record.ratio).aspect));
+  const tile = box.closest('.cv-slide');
+  tile.classList.toggle('moves', hasMotion(design));
+  tile.classList.toggle('film', hasVideo(design));
+  tile.setAttribute('aria-label', slideLabel(O.at, design));
+}
+/** 다른 장으로 간다. 지금 장은 편집기에서 꺼내 두고, 그 장을 편집기에 끼운다(실행 취소 기록은 장마다 따로라 비워진다). */
+function goSlide(O, i) {
+  if (O.closed || i === O.at || !O.slides[i] || videoBusy(O)) return;
+  const dir = i > O.at ? 1 : -1;
+  O.slides[O.at] = O.editor.getDesign();
+  O.at = i;
+  O.editor.setDesign(O.slides[i]);
+  renderStrip(O);
+  slideIn(stageCard(O), dir);            // 뒤의 장은 오른쪽에서, 앞의 장은 왼쪽에서 들어온다
+}
+/** 슬라이드 목록을 바꾼다(더하기·복제·지우기·옮기기). change(slides, at) 는 [새 목록, 이어서 꾸밀 번호] 를 돌려준다. */
+function changeSlides(O, change) {
+  if (O.closed || videoBusy(O)) return;
+  O.slides[O.at] = O.editor.getDesign();
+  const before = O.slides;
+  const was = O.at;
+  const [next, at] = change(O.slides, O.at);
+  if (at < 0) { toast(`슬라이드는 ${MAX_SLIDES}장까지 만들 수 있어요.`, 3500); return; }
+  if (next === O.slides) return;
+  O.slides = next;
+  O.at = at;
+  O.editor.setDesign(O.slides[at]);
+  renderStrip(O);
+  // 보이는 장이 바뀌었으면(더하기·복제·지우기) 그림이 들어오는 것처럼 보여 준다. 같은 장의 순서만 옮겼으면 그림은 그대로 둔다.
+  if (next[at] !== before[was]) slideIn(stageCard(O), Math.sign(at - was));
+  if (next.length > before.length) ease(O.strip.querySelector('.cv-slide.on'), [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], 240);
+  touched(O);
+}
+
+/** 움직임 칸의 "모든 장에 똑같이": 지금 장의 조합 효과와 전환 효과를 다른 장들에도 적는다(요소 하나하나의 효과는 그대로 둔다). */
+function applyMotionAll(O, motion) {
+  if (O.closed) return;
+  const others = O.slides.length - 1;
+  if (others < 1) { toast('아직 한 장뿐이에요. 새 장을 더하면 이 장의 움직임을 이어받아요.', 3500); return; }
+  const same = slideMotion(motion);
+  O.slides = O.slides.map((d, i) => (i === O.at ? d : { bg: d.bg, items: d.items, ...slideVideo(d), ...same }));
+  // 다른 장까지 바꿨으므로 실행 취소로는 지금 장만 되돌아가 어긋난다. 되돌리기 기록을 비운다(모양을 바꿀 때와 같다).
+  O.editor.forget();
+  renderStrip(O);
+  touched(O);
+  const nameOf = (list, id) => list.find((k) => k.id === id)?.name || '없음';
+  toast(`다른 ${others}장도 맞췄어요. 조합 효과: ${nameOf(COMBOS, same.pa)} · 전환 효과: ${nameOf(TRANSITIONS, same.tr)}`, 4000);
+}
+
+// ---------- 발표: 화면 가득 한 장씩 보여 준다 ----------
+// 움직임(src/motion.js): 다음 장으로 갈 때 그 장의 전환 효과로 넘어오고, 이어서 요소들이 나타난다.
+// "누를 때" 나오는 요소가 있으면, 넘기는 글쇠·누르기가 먼저 그것을 하나씩 나타나게 하고, 다 나온 뒤에 다음 장으로 간다.
+// 앞 장으로 돌아갈 때는 그 장의 다 나온 모습을 보여 준다. 움직임을 줄여 달라고 해 둔 기기에서는 움직이지 않고 바로 보인다.
+// 영상 장면이 있는 장은 그 장이 열리면 영상이 소리와 함께 저절로 틀어지고(쓰는 구간만), 끝나면 마지막 모습에서 멈춘다.
+// 아래 막대의 단추로 멈추거나 다시 틀 수 있다. 다른 장으로 넘어가면 멈춘다.
+function present(O) {
+  if (videoBusy(O)) return;
+  O.editor.quiet();          // 꾸미기 판에서 틀어 보던 영상을 멈추고 카메라를 끈다(발표 화면 뒤에서 소리가 나지 않게)
+  // 그리는 것과 움직임의 차례가 같은 요소를 가리키도록, 정리한 디자인 하나로 둘 다 한다(그릴 때와 같은 방법으로 정리한다).
+  const slides = currentSlides(O).map((d) => cleanDesign(d, { keepSpaces: true }));
+  const aspect = ratioOf(O.record.ratio).aspect;
+  let i = O.at;
+  let parts = null;          // 지금 장의 요소 움직임(조종기)
+  let turning = null;        // 틀고 있는 전환 효과
+  let leaving = null;        // 나가는 중인 장(전환이 끝나면 뗀다)
+  let film = null;           // 지금 장의 영상 조종기(영상 장면이 없는 장이면 null)
+  let filmTimer = 0;
+  const films = new WeakMap();      // 장(그린 요소) → 그 장의 영상 조종기
+  const stage = el('div', { class: 'cv-show-stage' });
+  const count = el('span', { class: 'cv-show-count' });
+  const btn = (label, title, onClick) => el('button', { class: 'cv-show-key', type: 'button', title, 'aria-label': title, onClick: (e) => { e.stopPropagation(); onClick(); } }, label);
+  // 영상 장면이 있는 장에서만 보이는 단추: 틀고 있으면 "멈추기", 멈춰 있으면 "틀기".
+  const toggleFilm = () => {
+    if (!film) return;
+    clearTimeout(filmTimer);
+    if (film.playing) film.pause(); else film.play();
+  };
+  const filmBtn = btn(ic('pause'), '영상 멈추기 (K)', toggleFilm);
+  filmBtn.classList.add('cv-show-film');
+  const markFilm = () => {
+    filmBtn.hidden = !film;
+    if (!film) return;
+    const title = film.playing ? '영상 멈추기' : '영상 틀기';
+    filmBtn.replaceChildren(ic(film.playing ? 'pause' : 'play'));
+    filmBtn.title = `${title} (K)`;
+    filmBtn.setAttribute('aria-label', title);
+  };
+  // 장을 뗀다(그 장의 영상도 함께 치운다).
+  const drop = (view) => {
+    films.get(view)?.destroy();
+    films.delete(view);
+    view.remove();
+  };
+  // 지금 장의 영상을 준비하고, delay(ms) 뒤에 처음부터 튼다. 영상 장면이 없는 장이면 단추를 감춘다.
+  const startFilm = (view, design, delay) => {
+    clearTimeout(filmTimer);
+    film?.pause();                     // 나가는 장의 영상은 멈춘다(마지막에 보이던 모습 그대로 넘어간다)
+    film = null;
+    const layer = design.video ? view.querySelector(':scope > .fe-scene') : null;
+    if (layer) {
+      const mine = film = scenePlayer(layer, design.video, { onState: () => { if (film === mine) markFilm(); } });
+      films.set(view, mine);
+      filmTimer = setTimeout(() => { if (film === mine) mine.play({ from: design.video.in }); }, delay);
+      // 파일이 이 기기에 없으면 틀 것이 없다: 단추를 감춘다
+      mine.ready.then((ok) => { if (!ok && film === mine) { film = null; markFilm(); } });
+    }
+    markFilm();
+  };
+  // 틀던 전환을 바로 끝내고 나가던 장을 뗀다.
+  const settle = () => {
+    turning?.finish();
+    turning = null;
+    if (leaving) drop(leaving);
+    leaving = null;
+  };
+  const draw = (dir = 0) => {
+    settle();
+    const design = slides[i];
+    const view = slideView(design, aspect, 1920);
+    view.style.setProperty('--fe-card-radius', '0');
+    const old = stage.firstElementChild;
+    count.textContent = `${i + 1} / ${slides.length}`;
+    if (!dir || !old) {
+      for (const n of [...stage.children]) drop(n);
+      stage.append(view);
+      parts = playDesign(view, design, { delay: 300 });          // 발표 화면이 뜬 뒤에 요소들이 나온다
+      startFilm(view, design, 300);
+      return;
+    }
+    stage.append(view);
+    // 다음 장으로: 그 장의 전환 효과. 앞 장으로: 방금 보던 장이 들어올 때의 전환을 거꾸로.
+    const turn = playTransition(old, view, dir > 0 ? design.tr : slides[i + 1]?.tr, dir);
+    startFilm(view, design, turn.ms);
+    if (turn.ms) {
+      turning = turn;
+      leaving = old;
+      turn.done.then(() => { if (turning === turn) settle(); });
+    } else {
+      drop(old);
+      ease(view, [{ opacity: 0, transform: `translateX(${dir * 4}%)` }, { opacity: 1, transform: 'none' }], 260);
+    }
+    parts = playDesign(view, design, { delay: turn.ms, still: dir < 0 });
+  };
+  const go = (step) => {
+    if (step > 0) {
+      // 움직이는 중에 넘기면 그 움직임은 바로 끝낸다. 누를 때 나오는 것이 남아 있으면 그것부터 하나 나타나게 한다.
+      settle();
+      parts?.finish();
+      if (parts?.next()) return;
+    }
+    const to = i + step;
+    if (to < 0) return;
+    if (to >= slides.length) { close(); return; }      // 마지막 장에서 더 넘기면 끝난다
+    i = to;
+    draw(step);
+  };
+  const onKey = (e) => {
+    // 아래 막대의 단추에 초점이 있을 때 스페이스 · 엔터는 그 단추를 누르는 글쇠다(다음 장으로 넘기지 않는다).
+    if ((e.key === ' ' || e.key === 'Enter') && e.target?.closest?.('.cv-show-key')) { e.stopPropagation(); return; }
+    // K: 영상 장면을 멈추거나 다시 튼다(글쇠의 자리로 견준다. 한글 입력 상태에서도 듣게).
+    if (e.code === 'KeyK' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); toggleFilm(); return; }
+    const step = e.key === 'Escape' ? 0 : ['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key) ? 1 : ['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key) ? -1 : null;
+    if (step === null) return;
+    e.preventDefault();
+    e.stopPropagation();          // 발표하는 동안에는 글쇠가 편집기로 가지 않게 한다
+    if (step === 0) close(); else go(step);
+  };
+  const onFull = () => { if (!document.fullscreenElement && overlay.dataset.full === '1') close(); };
+  function close() {
+    settle();
+    clearTimeout(filmTimer);
+    film = null;
+    for (const n of [...stage.children]) drop(n);
+    document.removeEventListener('keydown', onKey, true);
+    document.removeEventListener('fullscreenchange', onFull);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    overlay.remove();
+    document.body.classList.remove('modal-open');
+  }
+  const overlay = el('div', { class: 'cv-show', role: 'dialog', 'aria-label': '발표 화면', tabindex: '-1', onClick: () => go(1) },
+    stage,
+    el('div', { class: 'cv-show-bar' }, btn(ic('left'), '앞 장', () => go(-1)), count, btn(ic('right'), '다음 장', () => go(1)), filmBtn, btn([ic('close'), '끝내기'], '발표 끝내기 (Esc)', close)));
+  overlay.style.setProperty('--cv-show-ratio', String(aspect));
+  document.body.append(overlay);
+  document.body.classList.add('modal-open');
+  draw();
+  document.addEventListener('keydown', onKey, true);
+  overlay.focus({ preventScroll: true });
+  // 화면 가득 채워 본다(막힌 곳에서는 창 안에서 보여 준다).
+  if (overlay.requestFullscreen) {
+    overlay.requestFullscreen().then(() => { overlay.dataset.full = '1'; document.addEventListener('fullscreenchange', onFull); }).catch(() => {});
+  }
+}
+
+function markRatio(O, shapes) {
+  // 그림 칸은 이 비율로 남은 자리에 꼭 맞게 커진다(app.css 의 .cv-canvas).
+  const aspect = ratioOf(O.record.ratio).aspect;
+  O.shell?.style.setProperty('--cv-aspect', String(aspect));
+  if (O.shell) O.shell.dataset.shape = aspect >= 1.3 ? 'wide' : aspect < 0.7 ? 'tall' : 'even';       // 옆 칸의 템플릿 줄 수를 정한다(app.css)
+  for (const b of shapes.querySelectorAll('.cv-shape')) {
+    const on = b.dataset.ratio === O.record.ratio;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+}
+// '가로' → '로', '정사각형' → '으로' (받침이 있으면 '으로'. ㄹ 받침은 '로')
+function toParticle(word) {
+  const code = word.charCodeAt(word.length - 1) - 0xac00;
+  if (code < 0 || code > 11171) return '(으)로';
+  const last = code % 28;
+  return last === 0 || last === 8 ? '로' : '으로';
+}
+// 그림의 모양을 바꾼다. 놓아 둔 것이 있으면 어떻게 맞출지 먼저 묻는다(파워포인트에서 슬라이드 크기를 바꿀 때처럼).
+function setRatio(O, id, shapes) {
+  const r = ratioOf(id);
+  if (O.closed || r.id === O.record.ratio || videoBusy(O)) return;
+  const many = O.slides.length > 1;
+  const apply = (fit) => {
+    if (O.closed) return;
+    const before = settings().aspect;
+    O.record.ratio = r.id;
+    keepRatio(r.id);
+    markRatio(O, shapes);
+    const after = O.editor.setAspect(r.aspect, { fit });       // 지금 장. 요소가 있으면 onChange → touched 로 저장이 걸린다
+    slideIn(stageCard(O));
+    // 다른 장들도 같은 방법으로 맞춘다. 여러 장이면 실행 취소로는 지금 장만 되돌아가서 어긋나므로, 되돌리기 기록을 비운다.
+    if (many) {
+      O.slides = O.slides.map((d, i) => (i === O.at ? d : { bg: d.bg, items: reshapeItems(d.items, before, after, { fit }), ...slideExtra(d) }));
+      O.editor.forget();
+    }
+    renderStrip(O);
+    touched(O);
+  };
+  const design = O.editor.getDesign();
+  if (!design.items.length && !O.slides.some((d, i) => i !== O.at && d.items.length)) { apply(false); return; }
+  // 두 가지 결과를 미리 그려 본다(크기의 한도가 설정의 모양을 따르므로, 잠깐 새 모양으로 바꿔 놓고 그린 뒤 되돌린다).
+  const from = settings().aspect;
+  const to = configure({ aspect: r.aspect }).aspect;
+  const made = [true, false].map((fit) => {
+    const items = reshapeItems(design.items, from, to, { fit });
+    return { fit, items, view: fitView(designView({ bg: design.bg, items }), to) };
+  });
+  configure({ aspect: from });
+  // 두 결과가 똑같으면(예: 가운데에 하나만 있을 때) 묻지 않는다. 여러 장이면 다른 장에서는 다를 수 있으니 묻는다.
+  if (!many && JSON.stringify(made[0].items) === JSON.stringify(made[1].items)) { apply(false); return; }
+  const smaller = to > from;       // 더 납작해진다: 통째로 맞추면 요소가 작아진다
+  const texts = {
+    true: ['통째로 맞추기', smaller ? '지금 그림을 그대로 줄여서 새 모양 안에 넣어요. 겹치거나 잘리지 않아요.' : '지금 배치를 그대로 가운데에 놓아요. 위아래에 빈 곳이 생겨요.'],
+    false: ['크기는 그대로', '글과 그림의 크기는 그대로 두고, 자리만 새 모양에 맞게 옮겨요.'],
+  };
+  const pick = (m) => el('button', {
+    class: 'cv-fit', type: 'button', dataset: { fit: m.fit ? 'fit' : 'keep' },
+    onClick: () => { closeModal(); apply(m.fit); },
+  }, el('span', { class: 'cv-fit-view', 'aria-hidden': 'true' }, m.view), el('b', { text: texts[m.fit][0] }), el('small', { text: texts[m.fit][1] }));
+  openModal(el('div', { class: 'cv-fit-ask' },
+    el('h2', { text: `그림의 모양을 "${r.name}"${toParticle(r.name)} 바꿔요` }),
+    el('p', { class: 'muted', text: many
+      ? `${O.slides.length}장 모두 같은 방법으로 바뀌어요(아래는 지금 장). 여러 장일 때는 실행 취소로 되돌릴 수 없으니, 마음에 안 들면 예전 모양을 다시 골라요.`
+      : '놓아 둔 것들을 어떻게 할까요? 바꾼 뒤에 마음에 안 들면 실행 취소로 되돌릴 수 있어요.' }),
+    el('div', { class: 'cv-fits' }, ...made.map(pick)),
+    el('div', { class: 'row cv-fit-foot' }, el('button', { class: 'btn btn-ghost', type: 'button', onClick: closeModal }, '그만두기'))));
+}
+
+function setStatus(O, text, cls = '') {
+  if (S.open !== O) return;
+  O.status.textContent = text;
+  O.status.title = text;
+  O.status.className = `cv-status ${cls}`.trim();
+  // 빨간 띠는 저장에 성공할 때까지 그대로 둔다(고칠 때마다 숨겼다 보였다 하면 그림 칸의 크기가 흔들린다).
+  if (cls === 'bad') { O.alert.textContent = text; O.alert.hidden = false; }
+  else if (cls === 'ok') { O.alert.textContent = ''; O.alert.hidden = true; }
+}
+function touched(O) {
+  if (O.closed) return;
+  clearTimeout(O.thumbTimer);
+  O.thumbTimer = setTimeout(() => refreshThumb(O), 300);
+  O.dirty = true;
+  setStatus(O, '꾸미는 중…', 'busy');
+  clearTimeout(O.timer);
+  O.timer = setTimeout(() => save(O), SAVE_DELAY);
+}
+async function save(O) {
+  clearTimeout(O.timer);
+  O.timer = 0;
+  if (!O.dirty || O.closed) return true;       // 닫은 뒤에는 저장하지 않는다(치운 편집기는 빈 그림을 돌려준다)
+  const slides = currentSlides(O);
+  // 올린 파일 목록도 함께 적는다(편집기가 들고 있는 목록 + 다른 장에서 쓰는 사진).
+  const record = { ...O.record, slides, uploads: libraryOf(O.editor.getUploads().map((u) => u.url), slides), updatedAt: Date.now(), synced: false };
+  // 아직 아무것도 놓지 않은 새 그림은 저장하지 않는다(빈 그림이 목록에 쌓이지 않게).
+  if (!O.saved && isBlank(record)) { O.dirty = false; setStatus(O, '꾸미기 시작하면 저절로 저장돼요'); return true; }
+  O.dirty = false;
+  let ok = true;
+  let kept = record;
+  const put = putDesign(record);
+  O.putting = put.catch(() => {});             // 나갈 때 이 저장이 끝났는지 기다릴 수 있게 둔다
+  try {
+    kept = await put;
+    O.saved = true;
+  } catch (ex) {
+    console.error(ex);
+    ok = false;
+  }
+  O.localOk = ok;                              // 이 기기에 적혔는지(영상 파일을 정리해도 되는지 볼 때 쓴다)
+  if (ok) {
+    upsert(kept);
+    if (!O.dirty) setStatus(O, '이 기기에 저장했어요', 'ok');
+    return true;
+  }
+  O.dirty = true;
+  setStatus(O, '저장하지 못했어요. 기기의 저장 공간이 꽉 찼는지 확인하고, 그림을 내려받아 두세요.', 'bad');
+  return false;
+}
+/** 꾸미던 것을 저장하고 편집기를 치운다. 저장했으면 true. */
+async function leaveEditor(O) {
+  app.inert = true;                              // 나가는 동안에는 더 고치지 못하게 한다(그때 고친 것은 저장되지 않는다)
+  if (O.putting) await O.putting;                // 저절로 걸린 저장이 아직 끝나지 않았으면 기다린다(끝난 뒤에 결과를 본다)
+  let ok = await save(O);
+  if (O.dirty) ok = await save(O);               // 저장하는 사이에 더 바뀐 것
+  // 영상을 빼거나 바꿔서 이제 쓰지 않는 영상 파일을 이 기기에서 지운다(나가면 실행 취소로 되살릴 수 없다).
+  // 지금 모습이 이 기기에 적힌 것이 확실할 때에만 지운다. 적히지 못했으면 예전 모습의 그림이 남아 있고,
+  // 그 그림은 지우려던 영상을 아직 쓰고 있을 수 있다.
+  if (ok && !O.dirty && O.localOk !== false) await tidyVideos(O.record.id, currentSlides(O));
+  O.closed = true;
+  clearTimeout(O.timer);
+  clearTimeout(O.thumbTimer);
+  closeModal();
+  O.editor.destroy();
+  S.open = null;
+  app.inert = false;
+  return ok;
+}
+/**
+ * 그 그림(designId)에 딸린 영상 파일 가운데 이제 아무 데서도 쓰지 않는 것을 이 기기에서 지운다.
+ * slides: 그 그림의 지금 슬라이드들(그림을 지웠으면 빈 목록) · more: 그 밖에 살펴볼 열쇠들(지운 그림이 쓰던 것).
+ * 이 기기의 다른 그림이 쓰는 파일은 지우지 않는다. 다른 그림들을 읽지 못했으면 아무것도 지우지 않는다.
+ */
+async function tidyVideos(designId, slides, more = []) {
+  try {
+    const files = await listVideos();
+    if (!files.some((f) => f.design === designId) && !more.length) return;
+    const others = [...(await listDesigns()), ...(S.list || [])].filter((r) => r.id !== designId);
+    const gone = unusedVideos(files, designId, [...deckVideos(slides), ...others.flatMap((r) => deckVideos(r.slides))], more);
+    if (!gone.length) return;
+    await removeVideos(gone);
+    for (const key of gone) dropScene(key);
+  } catch (ex) {
+    console.warn(ex);
+  }
+}
+async function closeDesign(O, btn = null) {
+  if (O.closed || moving || videoBusy(O)) return;
+  // 저장하지 못했으면 바로 나가지 않는다(나가면 그림이 사라진다). 한 번 더 누르면 그래도 나간다.
+  let ok = await save(O);
+  if (O.dirty) ok = await save(O);
+  if (!ok && btn && btn.dataset.armed !== '1') {
+    btn.dataset.armed = '1';
+    relabel(btn, '저장 안 하고 나가기');
+    toast('저장하지 못했어요. 그림으로 내려받아 두고, 그래도 나가려면 한 번 더 눌러요.', 5000);
+    setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ''; relabel(btn, '내 그림'); } }, 6000);
+    return;
+  }
+  if (btn) btn.disabled = true;
+  await leaveEditor(O);
+  // 이 기기의 그림 목록은 다시 읽는다(싸다).
+  try { S.list = await listDesigns(); } catch { /* 저장소를 못 쓰는 창: 기억하고 있는 목록을 그대로 쓴다 */ }
+  // 꾸미던 그림이 작아지면서 목록의 그 그림 자리로 돌아간다(저장되지 않은 빈 그림이면 그냥 사라진다).
+  const id = O.record.id;
+  transit(() => {
+    render();
+    window.scrollTo({ top: 0 });
+    app.querySelector(`.cv-item[data-id="${id}"] .cv-thumb .fe-card`)?.classList.add('cv-moving');
+  }, 'close');
+}
+// ---------- 내려받기: 크기 · 파일 종류(그림 · 영상) · (여러 장이면) 이 장만 / 모든 장 · (영상이면) 머무는 시간 ----------
+function exportPref() {
+  let p = {};
+  try { p = JSON.parse(localStorage.getItem(EXPORT_KEY)) || {}; } catch { /* 기억해 둔 것이 없다 */ }
+  return {
+    size: EXPORT_SIZES.some((x) => x.id === p.size) ? p.size : DEFAULT_EXPORT, jpg: p.jpg === true, all: p.all === true,
+    video: p.video === true, vsize: VIDEO_SIZES.some((x) => x.id === p.vsize) ? p.vsize : DEFAULT_VIDEO, stay: STAYS.includes(p.stay) ? p.stay : DEFAULT_STAY,
+    // 골라 본 적이 있는지(없으면 "추천", 있으면 "지난번"이라고 알려 준다)
+    pickedSize: EXPORT_SIZES.some((x) => x.id === p.size), pickedVideo: VIDEO_SIZES.some((x) => x.id === p.vsize),
+  };
+}
+// 고른 것을 기억한다(그림과 영상의 것을 한곳에 두므로, 바뀐 것만 덮어쓴다).
+function rememberExport(changes) {
+  try {
+    let old = {};
+    try { old = JSON.parse(localStorage.getItem(EXPORT_KEY)) || {}; } catch { /* 처음이다 */ }
+    localStorage.setItem(EXPORT_KEY, JSON.stringify({ ...old, ...changes }));
+  } catch { /* 기억하지 못해도 괜찮다 */ }
+}
+const secondsText = (ms) => { const sec = Math.max(1, Math.round(ms / 1000)); return sec < 60 ? `${sec}초` : sec % 60 ? `${Math.floor(sec / 60)}분 ${sec % 60}초` : `${sec / 60}분`; };
+const NO_VIDEO = '이 브라우저에서는 영상으로 만들 수 없어요. 크롬이나 엣지에서 해 봐요.';
+function askDownload(O, btn) {
+  if (videoBusy(O)) return;
+  O.editor.quiet();          // 틀어 보던 영상을 멈춘다(창 뒤에서 소리가 나지 않게)
+  const aspect = ratioOf(O.record.ratio).aspect;
+  const n = O.slides.length;
+  const pref = exportPref();
+  const can = canMakeVideo();
+  const pick = { kind: pref.video && can ? 'video' : pref.jpg ? 'jpg' : 'png', all: pref.all && n > 1, stay: pref.stay };
+  // 장마다 바탕에 깐 영상이 있는지: ''(없다) · 'yes'(있다) · 'gone'(있는데 그 파일이 이 기기에 없다. 조금 뒤에 알게 된다)
+  const scenes = currentSlides(O).map((d) => (hasVideo(d) ? 'yes' : ''));
+  currentSlides(O).forEach((d, i) => {
+    const src = slideVideo(d).video?.src;
+    if (src) sceneUrl(src).then((url) => { if (!url) { scenes[i] = 'gone'; if (options.isConnected) draw(); } });
+  });
+  // 바탕에 깐 영상을 움직이는 채로 · 소리와 함께 담을 수 있는 브라우저인지(아니면 첫 모습의 멈춘 그림으로 담긴다).
+  const live = canFilmScenes();
+  // 내보낼 장들에 깐 영상이 어떻게 나오는지 알려 주는 글(없으면 빈 글).
+  const sceneNote = (list, video) => {
+    const have = list.filter(Boolean);
+    if (!have.length) return '';
+    const gone = have.filter((s) => s === 'gone').length;
+    if (gone === have.length) return '바탕에 깐 영상이 이 기기에 없어서, 그 장은 바탕색만 나와요.';
+    const lost = gone ? ' 이 기기에 없는 영상은 바탕색만 나와요.' : '';
+    if (!video) return `바탕에 깐 영상은 첫 모습이 그림으로 나와요.${lost}`;
+    return live ? `바탕에 깐 영상은 움직이는 채로, 소리와 함께 담겨요. 그 장은 영상이 끝날 때까지 이어져요.${lost}`
+      : `이 브라우저에서는 바탕에 깐 영상이 첫 모습의 멈춘 그림으로 들어가요(소리도 없어요). 크롬이나 엣지에서 만들면 움직이는 채로 담겨요.${lost}`;
+  };
+  // 영상의 길이(ms): 만들 때와 같은 계산이다(이 기기에 없는 영상은 세지 않는다).
+  const filmMs = (stay) => filmPlan(currentSlides(O).map((d, i) => {
+    const clean = cleanDesign(d, { keepSpaces: true });
+    if (scenes[i] === 'gone') delete clean.video;
+    return clean;
+  }), { stay, scenes: live }).ms;
+  const lead = el('p', { class: 'muted' });
+  const sizes = el('div', { class: 'cv-sizes' });
+  const options = el('div', { class: 'cv-down-options' });
+  const set = (changes) => {
+    // 다시 그려도 누르던 단추에 그대로 있게 한다(글쇠로 고르는 사람이 길을 잃지 않게).
+    const at = document.activeElement?.closest?.('.cv-down-options .chip')?.dataset;
+    Object.assign(pick, changes);
+    draw();
+    if (at) options.querySelector(Object.entries(at).map(([k, v]) => `.chip[data-${k}="${v}"]`).join(''))?.focus();
+  };
+  const chip = (label, on, onClick, data, more = {}) => el('button', { class: `btn chip${on ? ' on' : ''}`, type: 'button', 'aria-pressed': String(on), dataset: data, onClick, ...more }, label);
+  const row = (label, ...chips) => el('div', { class: 'cv-down-row' }, el('span', { class: 'cv-down-label', text: label }), el('div', { class: 'cv-down-chips' }, ...chips));
+  const sizeButton = ({ id, name, desc, width, height, last, note, onPick, off = false }) => el('button', { class: `cv-size${last ? ' last' : ''}`, type: 'button', dataset: { size: id }, onClick: onPick, ...(off ? { disabled: true } : {}) },
+    el('b', { text: name }), el('span', { class: 'cv-size-px', text: `${width} × ${height}` }), el('small', { text: desc }),
+    note ? el('span', { class: 'cv-size-last', text: note }) : null);
+  const imageSizes = () => EXPORT_SIZES.map((size) => sizeButton({
+    ...size, ...exportSize(size.id, aspect), last: size.id === pref.size, note: size.id !== pref.size ? '' : pref.pickedSize ? '지난번' : '추천',
+    onPick: () => {
+      closeModal();
+      rememberExport({ size: size.id, jpg: pick.kind === 'jpg', all: pick.all, video: false });
+      download(O, btn, { size: size.id, jpg: pick.kind === 'jpg', all: pick.all });
+    },
+  }));
+  // 영상의 크기: 지난번에 고른 것에 테두리를 두르되, 추천하는 크기(글자가 또렷한 쪽)는 늘 알려 준다
+  // (지난번에 작은 것을 골랐더라도 더 좋은 쪽이 있다는 것이 보이게).
+  const videoSizes = (off) => VIDEO_SIZES.map((size) => sizeButton({
+    ...size, ...videoSize(aspect, size.short), last: size.id === pref.vsize, off,
+    note: pref.pickedVideo && size.id === pref.vsize ? '지난번' : size.id === DEFAULT_VIDEO ? '추천' : '',
+    onPick: () => {
+      closeModal();
+      rememberExport({ video: true, vsize: size.id, stay: pick.stay });
+      makeVideo(O, { vsize: size.id, stay: pick.stay });
+    },
+  }));
+  const draw = () => {
+    const video = pick.kind === 'video';
+    lead.textContent = !video ? '크기를 누르면 바로 내려받아요. 클수록 또렷하지만 파일이 커져요.'
+      : scenes.some(Boolean) && !live ? '크기를 누르면 영상을 만들기 시작해요. 글과 요소가 발표할 때처럼 움직여요.'
+        : '크기를 누르면 영상을 만들기 시작해요. 발표할 때처럼 움직이는 영상이 돼요.';
+    // 영상은 모든 장을 차례로 담는다. 너무 길면(한도를 넘으면) 만들지 않는다: 크기 단추를 잠그고 까닭을 알려 준다.
+    const ms = video ? filmMs(pick.stay) : 0;
+    const long = ms > MAX_FILM_SECONDS * 1000;
+    sizes.classList.toggle('two', video);
+    sizes.replaceChildren(...(video ? videoSizes(long) : imageSizes()));
+    const rows = [row('파일 종류',
+      chip('PNG · 또렷하게', pick.kind === 'png', () => set({ kind: 'png' }), { type: 'png' }),
+      chip('JPG · 용량 작게', pick.kind === 'jpg', () => set({ kind: 'jpg' }), { type: 'jpg' }),
+      chip('영상 · 움직임까지', video, () => set({ kind: 'video' }), { type: 'video' }, can ? {} : { disabled: true, title: NO_VIDEO }))];
+    if (video) {
+      // 한 장이 얼마나 머무는지만 고른다(바탕에 영상을 깐 장은 그 영상이 끝날 때까지 이어진다).
+      rows.push(row('한 장에', ...STAYS.map((sec) => chip(`${sec}초`, pick.stay === sec, () => set({ stay: sec }), { stay: String(sec) }))));
+      rows.push(el('p', { class: 'cv-down-note', text: `${n > 1 ? `${n}장 모두 · ` : ''}영상 길이 약 ${secondsText(ms)}` }));
+      if (long) rows.push(el('p', { class: 'cv-down-note warn', role: 'status', text: `영상은 ${MAX_FILM_SECONDS / 60}분까지 만들 수 있어요. 바탕에 깐 영상의 쓸 구간을 줄이거나, 장을 나눠 따로 만들어요.` }));
+      // 바탕에 깐 영상이 어떻게 담기는지 미리 알려 준다(멈춘 그림으로 담기거나 빠지는 것이 있을 때는 눈에 띄게).
+      const note = sceneNote(scenes, true);
+      if (note) rows.push(el('p', { class: `cv-down-note${live && !scenes.includes('gone') ? '' : ' warn'}`, text: note }));
+    } else if (n > 1) {
+      rows.push(row('어느 장',
+        chip(`지금 장 (${O.at + 1}번째)`, !pick.all, () => set({ all: false }), { scope: 'one' }),
+        chip(`모든 장 (${n}장 · 압축 파일)`, pick.all, () => set({ all: true }), { scope: 'all' })));
+    }
+    if (!video && sceneNote(pick.all ? scenes : [scenes[O.at]], false)) rows.push(el('p', { class: 'cv-down-note', text: sceneNote(pick.all ? scenes : [scenes[O.at]], false) }));
+    if (!can) rows.push(el('p', { class: 'cv-down-note', text: NO_VIDEO }));
+    options.replaceChildren(...rows);
+  };
+  draw();
+  openModal(el('div', { class: 'cv-down-ask' }, el('h2', { text: '내려받기' }), lead, sizes, options));
+}
+const saveBlob = (blob, name) => {
+  const url = URL.createObjectURL(blob);
+  const a = el('a', { href: url, download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+};
+async function download(O, btn, { size, jpg, all }) {
+  if (O.closed) return;
+  const label = labelOf(btn);
+  btn.disabled = true;
+  relabel(btn, '그림으로 바꾸는 중…');
+  try {
+    const aspect = ratioOf(O.record.ratio).aspect;
+    const px = exportSize(size, aspect);
+    const slides = currentSlides(O);
+    const type = jpg ? 'image/jpeg' : 'image/png';
+    const missing = new Set();
+    const now = new Date();
+    const render = async (design) => {
+      const made = await designToBlob(design, { width: px.width, aspect, type, quality: 0.92 });
+      for (const f of made.missingFonts) missing.add(f);
+      return made;
+    };
+    let what = '';
+    if (all && slides.length > 1) {
+      // 한 장씩 그림으로 바꿔서 압축 파일 하나로 묶는다(파일을 여러 번 내려받게 하지 않는다).
+      const files = [];
+      for (let i = 0; i < slides.length; i++) {
+        relabel(btn, `그림으로 바꾸는 중… (${i + 1}/${slides.length})`);
+        const made = await render(slides[i]);
+        files.push({ name: `${fileName(now, i + 1)}.${made.ext}`, bytes: new Uint8Array(await made.blob.arrayBuffer()) });
+      }
+      saveBlob(new Blob([zipStore(files, now)], { type: 'application/zip' }), `${fileName(now)}.zip`);
+      what = `${slides.length}장을 압축 파일(ZIP)로 내려받았어요. (${jpg ? 'JPG' : 'PNG'} · ${px.width}×${px.height})`;
+    } else {
+      const made = await render(slides[O.at]);
+      saveBlob(made.blob, `${fileName(now, slides.length > 1 ? O.at + 1 : 0)}.${made.ext}`);
+      what = `그림 파일로 내려받았어요. (${jpg ? 'JPG' : 'PNG'} · ${made.width}×${made.height})`;
+    }
+    toast(missing.size ? `${what} 다만 글꼴(${[...missing].join(', ')})을 받지 못해 기본 글꼴로 나왔어요. 인터넷을 확인해요.` : what, missing.size ? 6000 : 3500);
+  } catch (ex) {
+    console.error(ex);
+    toast(size === 'large' ? '그림으로 바꾸지 못했어요. "보통" 크기로 다시 해 봐요.' : '그림으로 바꾸지 못했어요. 크롬이나 엣지에서 다시 해 봐요.', 4500);
+  }
+  btn.disabled = false;
+  relabel(btn, label);
+}
+
+// 영상으로 만들기: 만드는 모습을 그대로 보여 주고(진행 막대 · 그만두기), 다 되면 틀어 보고 내려받게 한다.
+async function makeVideo(O, { vsize, stay }) {
+  if (O.closed) return;
+  const size = videoSize(ratioOf(O.record.ratio).aspect, (VIDEO_SIZES.find((x) => x.id === vsize) || VIDEO_SIZES[0]).short);
+  const slides = currentSlides(O);
+  const stop = new AbortController();
+  let url = '';
+  let making = true;
+  let again = false;           // 다른 파일 종류로 처음부터 다시 만드는 중인지
+  let armed = 0;               // "그만두기"를 한 번 누른 뒤의 기다림(그동안 한 번 더 누르면 그만둔다)
+  const canvas = el('canvas', { class: 'cv-film-view', 'aria-label': '만들고 있는 영상' });
+  const fill = el('span', { class: 'cv-film-fill' });
+  // 얼마나 됐는지는 막대(progressbar)가 알린다. 글은 1초에도 여러 번 바뀌므로 화면 읽기 프로그램이 따라 읽지 않게 둔다.
+  const bar = el('span', { class: 'cv-film-bar', role: 'progressbar', 'aria-label': '영상을 만든 정도', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, fill);
+  const label = el('p', { class: 'cv-film-label', text: '준비하는 중이에요…' });
+  const stage = el('div', { class: 'cv-film-stage' }, canvas);
+  stage.style.setProperty('--cv-film-ratio', String(size.width / size.height));
+  // 만드는 데 오래 걸리므로, 잘못 눌러 날리지 않게 한 번 더 누를 때 그만둔다.
+  const quit = el('button', { class: 'btn cv-film-quit', type: 'button', onClick: () => askQuit() }, '그만두기');
+  const askQuit = () => {
+    if (!making || armed) { closeModal(); return; }
+    quit.textContent = '한 번 더 누르면 그만둬요';
+    quit.classList.add('armed');
+    armed = setTimeout(() => { armed = 0; quit.textContent = '그만두기'; quit.classList.remove('armed'); }, 4000);
+  };
+  const box = el('div', { class: 'cv-film' },
+    el('h2', { text: '영상을 만드는 중이에요' }), stage, label, bar,
+    el('p', { class: 'muted cv-film-note', text: '다 될 때까지 이 창을 그대로 두어요.' }),
+    el('div', { class: 'cv-film-actions' }, quit));
+  // 만드는 동안에는 창 바깥을 눌러도 닫히지 않고, 닫기(✕)도 "그만두기"처럼 한 번 더 누를 때 닫힌다.
+  const guard = (e) => {
+    if (!making) return;
+    if (e.target?.classList?.contains('modal-backdrop')) e.stopPropagation();
+    else if (e.target?.closest?.('.modal-close')) { e.stopPropagation(); askQuit(); }
+  };
+  document.addEventListener('click', guard, true);
+  openModal(box, {
+    wide: true,
+    onClose: () => {
+      document.removeEventListener('click', guard, true);
+      clearTimeout(armed);
+      if (making) toast('영상 만들기를 그만뒀어요.');
+      making = false;
+      stop.abort();
+      if (url) URL.revokeObjectURL(url);
+    },
+  });
+  try {
+    const made = await designsToVideo(slides, {
+      ...size, stay, canvas, signal: stop.signal, fixBlob: fixWebmBlob,
+      onProgress: (p) => {
+        const pct = Math.round(p * 100);
+        fill.style.width = `${pct}%`;
+        bar.setAttribute('aria-valuenow', String(pct));
+        label.textContent = `${again ? '다시 만드는 중이에요' : '영상을 만드는 중이에요'}… ${pct}%`;
+      },
+      onRetry: () => { again = true; fill.style.width = '0%'; label.textContent = '다른 방식으로 다시 만드는 중이에요…'; },
+    });
+    if (stop.signal.aborted) return;          // 그만뒀다(창을 닫을 때 이미 알렸다)
+    making = false;
+    clearTimeout(armed);
+    if (!made) throw new Error('영상이 만들어지지 않았어요');
+    url = URL.createObjectURL(made.blob);
+    const name = `${fileName(new Date())}.${made.ext}`;
+    const mb = made.blob.size / 1048576;
+    const facts = [made.ext.toUpperCase(), `${made.width}×${made.height}`, secondsText(made.seconds * 1000), `${mb >= 10 ? Math.round(mb) : Math.round(mb * 10) / 10}MB`];
+    // 다 된 영상은 바로 틀어 보여 준다(소리를 꺼 두어야 브라우저가 저절로 틀게 해 준다. 소리가 담겼으면 켜는 법을 알려 준다).
+    const view = el('video', { class: 'cv-film-view', src: url, controls: true, playsinline: true, loop: true, autoplay: true });
+    view.muted = true;
+    if (made.sound) facts.push('소리 있음');
+    const notes = [];
+    if (made.sound) notes.push('여기서는 소리를 끄고 틀어요. 소리를 들으려면 영상 아래의 스피커 단추를 눌러요.');
+    if (made.ext === 'webm') notes.push('WebM 파일이에요. 크롬이나 엣지에서 잘 열려요.');
+    // MP4 에 Opus 소리를 담았을 때(이 기기에 AAC 인코더가 없다): 그림은 어디서나 나오지만 소리는 못 트는 프로그램이 있다.
+    if (made.sound === 'opus' && made.ext === 'mp4') notes.push('소리는 크롬 · 엣지 · 안드로이드에서 잘 들려요. 다른 프로그램에서는 그림만 나오고 소리가 안 날 수 있어요.');
+    if (made.soundLost) notes.push(made.sound ? '소리를 풀지 못한 영상이 있어서, 그 영상의 소리는 빠졌어요.' : '이 기기에서는 바탕에 깐 영상의 소리를 담지 못했어요. 그림만 들어 있어요.');
+    if (made.stills) notes.push(canFilmScenes() ? '읽지 못한 바탕 영상은 멈춘 그림으로 들어갔어요.' : '이 브라우저에서는 바탕에 깐 영상이 멈춘 그림으로 들어갔어요.');
+    if (made.missingFonts.length) notes.push(`글꼴(${made.missingFonts.join(', ')})을 받지 못해 기본 글꼴로 나왔어요. 인터넷을 확인하고 다시 만들어 봐요.`);
+    const done = el('div', { class: 'cv-film-stage' }, view);
+    done.style.setProperty('--cv-film-ratio', String(size.width / size.height));
+    box.replaceChildren(
+      el('h2', { text: '영상이 다 됐어요' }), done,
+      el('p', { class: 'cv-film-label', role: 'status', text: facts.join(' · ') }),
+      ...notes.map((text) => el('p', { class: 'muted cv-film-note', text })),
+      el('div', { class: 'cv-film-actions' },
+        el('button', { class: 'btn', type: 'button', onClick: () => closeModal() }, '닫기'),
+        el('a', { class: 'btn btn-primary cv-film-save', href: url, download: name, onClick: () => toast('영상 파일로 내려받았어요.', 3500) }, ...face('download', '내려받기'))));
+    box.querySelector('.cv-film-save').focus();
+  } catch (ex) {
+    console.error(ex);
+    if (stop.signal.aborted) return;
+    making = false;
+    if (box.isConnected) closeModal();
+    if (ex?.code === 'too-long') { toast(`영상은 ${MAX_FILM_SECONDS / 60}분까지 만들 수 있어요. 바탕에 깐 영상의 쓸 구간을 줄여 봐요.`, 5000); return; }
+    toast(vsize !== VIDEO_SIZES[0].id ? `영상으로 만들지 못했어요. "${VIDEO_SIZES[0].name}" 크기로 다시 해 봐요.` : '영상으로 만들지 못했어요. 잠시 뒤에 다시 해 봐요.', 5000);
+  }
+}
+
+// 창을 닫거나 다른 곳으로 갈 때: 미뤄 둔 저장을 바로 한다.
+function flush() {
+  const O = S.open;
+  if (O?.dirty) save(O);
+}
+
+/**
+ * 미니캔 앱을 시작한다. 한 쪽(page)에 한 번만 부른다.
+ * - root: 앱을 그릴 곳(없으면 #app)
+ * - fonts: 글꼴 목록 [{ id, name, desc?, url }] · titleFont: 템플릿의 큰 제목에 쓸 글꼴 id
+ * - storage: 이 기기의 저장소 이름(같은 주소에서 다른 앱과 섞이지 않게. 기본 'minican')
+ * - onView(view): 화면이 바뀔 때('home' · 'edit') 알려 준다(들여 쓰는 곳이 둘레를 맞출 때 쓴다)
+ */
+export function startMinican({ root = document.getElementById('app'), fonts = [], titleFont = '', storage = 'minican', onView: view = null } = {}) {
+  if (app) throw new Error('minican already started');
+  if (!root) throw new Error('minican root');
+  app = root;
+  if (typeof view === 'function') onView = view;
+  setStorageName(storage);
+  useFonts(fonts, titleFont);
+  setupCanva();
+  window.addEventListener('pagehide', flush);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+  S.phase = 'boot';
+  return refresh();
+}
