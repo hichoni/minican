@@ -38,3 +38,23 @@ The approved B Onbatang symbol, custom wordmark contours and application brandin
      https://github.com/halfmage/pixelarticons — 전문: src/art/LICENSE-pixelarticons.txt (npm @iconify-json/pixelarticons 1.2.10 에서)
    - Open Peeps (사람) — Pablo Stanley — CC0 1.0 (퍼블릭 도메인)
      https://www.openpeeps.com — 안내: src/art/LICENSE-open-peeps.txt (npm @opeepsfun/open-peeps 1.0.6 의 부품으로 얼굴·머리·몸을 짜 맞춤)
+
+5. 온바탕 글꼴 — app/fonts/ (앱의 글꼴 고르기에 나오는 무료 글꼴 15종)
+   Google Fonts 원본(https://github.com/google/fonts/tree/main/ofl)을 글자를 빼거나 바꾸지 않고 웹 글꼴(woff2)로만 바꿨습니다.
+   나눔손글씨 펜 · 붓은 예약된 글꼴 이름(Nanum)을 지키려고, OFL FAQ 가 수정이 아니라고 보는 무손실 WOFF(원래 정보 그대로)로 바꿨습니다.
+   모두 SIL Open Font License 1.1 — 글꼴마다의 전문: app/fonts/<id>-OFL.txt
+   - gowun-batang (고운바탕) — Copyright 2021 The Gowun Batang Project Authors (https://github.com/yangheeryu/Gowun-Batang)
+   - gowun-dodum (고운돋움) — Copyright 2021 The Gowun Dodum Project Authors (https://github.com/yangheeryu/Gowun-Dodum)
+   - do-hyeon (도현) — Copyright 2018 The Do Hyeon Project Authors
+   - jua (주아) — Copyright 2018 The Jua Project Authors
+   - bagel-fat-one (베이글(Bagel Fat One)) — Copyright 2022 The Bagel Fat Project Authors (https://github.com/JAMO-TYPEFACE/BagelFat)
+   - gugi (구기) — Copyright (c) 2017 by TAE System & Typefaces Co.. All rights reserved.
+   - dongle (동글) — Copyright 2021 The Dongle Project Authors (https://github.com/yangheeryu/Dongle)
+   - yeon-sung (연성) — Copyright 2018 The BM YEONSUNG Project Authors
+   - single-day (싱글데이) — Copyright 2015 DXKorea Inc. All rights reserved.
+   - poor-story (서툰이야기) — Copyright (c) YoonDesign Inc. All Rights Reserved.
+   - gamja-flower (감자꽃) — Copyright (c) YoonDesign Inc. All Rights Reserved.
+   - hi-melody (하이멜로디) — Copyright (c) YoonDesign Inc. All Rights Reserved.
+   - nanum-pen (나눔손글씨 펜) — Copyright (c) 2010, NHN Corporation (http://www.nhncorp.com)
+   - nanum-brush (나눔손글씨 붓) — Copyright (c) 2010, NHN Corporation (http://www.nhncorp.com)
+   - east-sea-dokdo (동해독도) — Copyright (c) YoonDesign Inc. All Rights Reserved.
