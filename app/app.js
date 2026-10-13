@@ -7,7 +7,9 @@ import { el, toast, openModal, closeModal } from './ui.js';
 import {
   createEditor, designView, designToBlob, configure, settings, reshapeItems, layoutList, layoutItems, icon, cleanDesign, hasMotion, playDesign, playTransition,
   COMBOS, TRANSITIONS, designsToVideo, canMakeVideo, canFilmScenes, filmPlan, MAX_FILM_SECONDS, videoSize, STAYS, DEFAULT_STAY, scenePlayer, dropScene, sceneUrl,
+  fontFamilyOf, fontList, artSvg, artReady, loadArt,
 } from '../src/index.js';
+import { TITLE_FONT } from './templates.js';
 // 브라우저가 녹화한 WebM 에는 길이가 적혀 있지 않다. 영상 내려받기에 "길이 적어 넣기"를 쓴다.
 import { fixWebmBlob } from './webm.js';
 // 영상 장면을 카메라로 찍을 때 쓰는 카메라(찍기 · 멈추기 · 앞뒤 카메라 바꾸기).
@@ -169,11 +171,12 @@ function keepRatio(id) {
 }
 
 // ---------- 첫 화면: 소개 + 새로 만들기(빈 그림 · 템플릿) 띠 · 내 그림 ----------
-const POINTS = [
-  ['template', '템플릿 골라 글 바꾸기'],
-  ['screen', '여러 장 만들고 발표하기'],
-  ['shapes', '글·도형·사진 끌어 놓기'],
-  ['check', '이 기기에 자동 저장'],
+// 대문의 "만들 수 있는 것": [작은 그림, 이름, 색]
+const FEATS = [
+  ['copy', '카드', 'mint'],
+  ['image', '포스터', 'sky'],
+  ['screen', '발표 자료', 'lilac'],
+  ['template', '다양한 템플릿', 'sun'],
 ];
 // 첫 화면의 "템플릿으로 시작하기"는 두 칸이다: 주제 테마(표지 9종, 발표 화면 모양) · 기본 짜임(6종).
 const STARTS = [['theme', '주제 테마'], ['basic', '기본 짜임']];
@@ -243,6 +246,51 @@ function startNew(layoutId = '', tile = null) {
   transit(() => { if (!S.open) openDesign(record, true); }, 'open', from);
 }
 
+// 대문 오른쪽의 그림: 꾸미는 화면을 본뜬 창(가운데는 주제 테마의 표지, 오른쪽은 다른 표지들)과 둘레에 떠 있는 카드들.
+// 장식이라 화면 읽기 프로그램에는 감춘다. 그림 묶음(art.js)의 그림은 불러온 뒤에 채운다.
+const HAND = /손글씨|손 글씨|편안한/;
+function heroShowcase() {
+  const covers = layoutList().filter((l) => l.cover);
+  if (!covers.length) return null;
+  const [main, ...more] = covers;
+  const art = (id, cls) => {
+    const node = el('span', { class: `cv-demo-art ${cls}`, html: artSvg(id, { fit: 'meet' }) });
+    if (!artReady()) loadArt().then(() => { node.innerHTML = artSvg(id, { fit: 'meet' }); }).catch(() => {});
+    return node;
+  };
+  const hand = fontList().find((f) => HAND.test(`${f.name} ${f.desc || ''}`));
+  const handFont = hand ? `"${fontFamilyOf(hand.id)}", cursive` : '';
+  const note = (cls, lines) => {
+    const node = el('p', { class: `cv-demo-note ${cls}` }, ...lines.flatMap((t, i) => (i ? [el('br'), t] : [t])));
+    if (handFont) node.style.fontFamily = handFont;
+    return node;
+  };
+  const cursor = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v16l4.5-4.2 2.9 6.4 2.8-1.3-2.9-6.2H18z" fill="#141933" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+  const win = el('div', { class: 'cv-demo-win' },
+    el('div', { class: 'cv-demo-top' },
+      el('b', { class: 'cv-demo-brand' }, ic('shapes'), '미니캔'),
+      el('span', { class: 'cv-demo-undo' }, ic('undo'), ic('redo')),
+      el('span', { class: 'cv-demo-down' }, ic('download'), '내려받기')),
+    el('div', { class: 'cv-demo-body' },
+      el('ul', { class: 'cv-demo-rail' }, ...[['template', '템플릿'], ['shapes', '요소'], ['text', '텍스트'], ['image', '사진'], ['motion', '움직임']]
+        .map(([pic, text]) => el('li', {}, ic(pic), el('span', { text })))),
+      el('div', { class: 'cv-demo-canvas' }, el('span', { class: 'cv-demo-card' }, layoutThumb(main)),
+        el('span', { class: 'cv-demo-pick' }, el('i'), el('i'), el('i'), el('i')), el('span', { class: 'cv-demo-cursor', html: cursor })),
+      el('div', { class: 'cv-demo-side' }, ...more.slice(0, 3).map((l) => el('span', { class: 'cv-demo-thumb' }, layoutThumb(l))))));
+  return el('div', { class: 'cv-demo', 'aria-hidden': 'true' },
+    el('span', { class: 'cv-demo-blob one' }), el('span', { class: 'cv-demo-blob two' }),
+    win,
+    el('span', { class: 'cv-demo-float cv-demo-photo' }, el('i')),
+    el('span', { class: 'cv-demo-float cv-demo-t', text: 'T' }),
+    el('span', { class: 'cv-demo-float cv-demo-shapes' }, el('i'), el('i'), el('i')),
+    el('span', { class: 'cv-demo-float cv-demo-chart' }, el('i'), el('i'), el('i'), el('i')),
+    art('fe:smiling-face-with-smiling-eyes', 'cv-demo-smile'),
+    art('fe:sparkles', 'cv-demo-spark'),
+    art('fe:seedling', 'cv-demo-plant'),
+    note('cv-demo-say', ['아이디어를', '멋진 결과물로!']),
+    note('cv-demo-card-note', ['만드는 즐거움이', '더 넓은 가능성으로 ♡']));
+}
+
 // 처음 불러온 그림들은 살짝 떠오르며 나타난다(그 뒤에 다시 그릴 때는 움직이지 않는다).
 let wasLoading = true;
 function render() {
@@ -267,17 +315,23 @@ function render() {
     : layoutList().filter((l) => l.group === BASIC_GROUP).map((l) => [l, l.name]);
   const newBtn = (cls) => el('button', { class: `btn ${cls}`, type: 'button', disabled: loading || full, onClick: () => startNew() }, ic('plus'), el('span', { text: '새 그림 만들기' }));
 
-  // ① 공통 소개 카드: 도구 이름 + 새로 만들기 + 할 수 있는 일.
+  // ① 대문: 왼쪽은 이름 · 한 줄 소개 · 만들 수 있는 것 · 시작 단추, 오른쪽은 꾸미는 화면을 본뜬 그림(실제 템플릿과 그림 묶음으로 그린다).
+  const display = fontFamilyOf(TITLE_FONT);
+  const title = el('h1', { id: 'canva-title', class: 'cv-home-title' }, '미니캔');
+  if (display) title.style.fontFamily = `"${display}", var(--fe-font, sans-serif)`;
+  const start = el('button', { class: 'btn cv-cta cv-new-btn', type: 'button', disabled: loading || full, onClick: () => startNew() },
+    el('span', { text: '지금, 나만의 디자인을 시작하세요' }), ic('right'));
   const hero = el('section', { class: 'cv-hero', 'aria-labelledby': 'canva-title' }, el('div', { class: 'cv-hero-in' },
     el('div', { class: 'cv-hero-text' },
-      el('div', { class: 'cv-home-heading' },
-        el('h1', { id: 'canva-title', class: 'cv-home-title' }, el('span', { class: 'cv-home-icon', 'aria-hidden': 'true' }, ic('shapes')), '미니캔'),
-        el('p', { class: 'cv-hero-kicker', text: '글·도형·사진으로 생각 펼치기' })),
-      el('p', { class: 'cv-hero-lead', text: '카드·포스터·발표 자료를 만들어요. 완성하면 그림이나 영상 파일로 내려받아요.' })),
-    el('div', { class: 'cv-hero-go' }, newBtn('cv-cta cv-new-btn'),
-      full ? el('p', { class: 'cv-hero-full', text: `그림은 ${MAX_DESIGNS}장까지 저장돼요. 안 쓰는 그림을 지워 주세요.` }) : null),
-    el('ul', { class: 'cv-points' }, ...POINTS.map(([pic, text]) => el('li', {}, el('span', { class: 'cv-point-icon', 'aria-hidden': 'true' }, ic(pic)),
-      text)))));
+      el('div', { class: 'cv-home-heading' }, el('span', { class: 'cv-home-icon', 'aria-hidden': 'true' }, ic('shapes')), title),
+      el('p', { class: 'cv-hero-kicker' }, el('span', { class: 'cv-kick-color', text: '글·도형·사진으로' }), ' 생각 펼치기'),
+      el('p', { class: 'cv-hero-lead' }, '카드·포스터·발표 자료를 쉽고 예쁘게 만드는', el('br'), '디자인 공간, 미니캔'),
+      el('ul', { class: 'cv-feats', 'aria-label': '만들 수 있는 것' }, ...FEATS.map(([pic, text, tone]) => el('li', { class: `cv-feat ${tone}` },
+        el('span', { class: 'cv-feat-icon', 'aria-hidden': 'true' }, ic(pic)), el('span', { text })))),
+      el('div', { class: 'cv-hero-go' }, start,
+        full ? el('p', { class: 'cv-hero-full', text: `그림은 ${MAX_DESIGNS}장까지 저장돼요. 안 쓰는 그림을 지워 주세요.` }) : null),
+      el('p', { class: 'cv-hero-tag', text: `아이디어가 멋진 결과물이 되는 곳, 미니캔 · ${sync ? '내 계정에 자동 저장' : '이 기기에 자동 저장'}` })),
+    heroShowcase()));
 
   // 템플릿은 소개 카드 아래의 같은 본문 폭에서 골라 바로 시작한다.
   const track = el('div', { id: 'canva-template-list', class: `cv-start-list ${startTab}`, dataset: { starts: startTab }, role: 'group', 'aria-label': `${STARTS.find(([id]) => id === startTab)[1]} 템플릿` }, ...starts.map(([l, name]) => el('button', {
@@ -326,7 +380,7 @@ function render() {
   if (S.error) mine.append(el('p', { class: 'warn-box', text: S.error }));
 
   app.replaceChildren(hero, el('div', { class: 'cv-home' }, templates, mine,
-    el('p', { class: 'cv-note', text: '그림은 이 기기(이 브라우저)에만 저장돼요(서버로 올라가지 않아요). 다른 기기에서는 보이지 않으니, 다 만든 그림은 내려받아 두세요. 그림의 모양(정사각형·세로·가로·길게)은 꾸미는 화면에서 언제든 바꿀 수 있어요.' })));
+    el('p', { class: 'cv-note', text: `${sync ? '그림은 이 기기에 먼저 저장한 뒤 내 계정에도 저장돼요. 바탕에 깐 영상만 이 기기에 남아요.' : '그림은 이 기기(이 브라우저)에만 저장돼요(서버로 올라가지 않아요). 다른 기기에서는 보이지 않으니, 다 만든 그림은 내려받아 두세요.'} 그림의 모양(정사각형·세로·가로·길게)은 꾸미는 화면에서 언제든 바꿀 수 있어요.` })));
   homeRail = mountStartRail(track, previous, next);
   if (focusedLayout) track.querySelector(`[data-layout="${CSS.escape(focusedLayout)}"]`)?.focus({ preventScroll: true });
   else if (focusedSelector) templates.querySelector(focusedSelector)?.focus({ preventScroll: true });
