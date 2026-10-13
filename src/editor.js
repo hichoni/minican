@@ -2711,7 +2711,7 @@ export function createEditor({
     const found = parseYouTube(text);
     if (!found) { notify('유튜브 영상 주소가 아니에요. 유튜브에서 "공유 → 복사"한 주소를 붙여 넣어요.', 4500); return false; }
     add(newYouTube(found.id, { start: found.start || 0 }));
-    notify(found.start ? `유튜브 영상을 넣었어요. ${ytTime(found.start)}부터 틀어져요.` : '유튜브 영상을 넣었어요. 발표할 때 누르면 틀어져요.', 3500);
+    notify(found.start ? `유튜브 영상을 넣었어요. 발표할 때 스페이스 바를 누르면 ${ytTime(found.start)}부터 틀어져요.` : '유튜브 영상을 넣었어요. 발표할 때 스페이스 바를 누르면 틀어져요.', 3500);
     return true;
   }
   function ytAdder() {
@@ -2723,7 +2723,7 @@ export function createEditor({
     return el('div', { class: 'fe-yt-add', role: 'group', 'aria-label': '유튜브 영상 넣기' },
       el('div', { class: 'fe-head', text: '유튜브 영상' }),
       el('div', { class: 'fe-row fe-yt-row' }, input, el('button', { class: 'fe-btn', type: 'button', onClick: go }, icon('plus'), '넣기')),
-      el('p', { class: 'fe-note', text: '유튜브의 "공유 → 복사" 주소를 붙여 넣어요. 꾸미기 판에서 Ctrl+V 로 붙여 넣어도 돼요. 발표할 때 누르면 그 자리에서 틀어져요(인터넷 필요).' }));
+      el('p', { class: 'fe-note', text: '유튜브의 "공유 → 복사" 주소를 붙여 넣어요. 꾸미기 판에서 Ctrl+V 로 붙여 넣어도 돼요. 발표할 때 스페이스 바로 틀고 멈춰요(인터넷 필요).' }));
   }
   // 시작 시각 칸: "1:30" · "90" · "1m30s" 를 받는다. 비우면 처음부터.
   function ytStartBody(it) {

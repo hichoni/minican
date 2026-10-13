@@ -11,6 +11,7 @@ import {
   fontFamilyOf, fontList,
 } from '../src/index.js';
 import { HERO_ART, HERO_VIEW } from './hero-art.js';
+import { startTour, stopTour, tourSeen, markTourSeen, HOME_STEPS, EDITOR_STEPS } from './tour.js';
 // 브라우저가 녹화한 WebM 에는 길이가 적혀 있지 않다. 영상 내려받기에 "길이 적어 넣기"를 쓴다.
 import { fixWebmBlob } from './webm.js';
 // 영상 장면을 카메라로 찍을 때 쓰는 카메라(찍기 · 멈추기 · 앞뒤 카메라 바꾸기).
@@ -43,6 +44,7 @@ const S = {
 let homeRail = null;
 /** 지금 무슨 화면인지 적어 둔다(app.css 가 이것을 보고 짜임을 바꾼다): 'home' · 'edit'. 들여 쓰는 곳에도 알린다(onView). */
 function setView(view) {
+  stopTour();
   if (view !== 'home' && homeRail) {
     startScroll = homeRail.track.scrollLeft;
     homeRail.dispose();
@@ -251,6 +253,35 @@ function startNew(layoutId = '', tile = null) {
 // 대문 오른쪽의 그림: 꾸미는 화면을 본뜬 창(가운데는 주제 테마의 표지, 오른쪽은 다른 표지들)과 둘레에 떠 있는 카드들.
 // 장식이라 화면 읽기 프로그램에는 감춘다. 그림 묶음(art.js)의 그림은 불러온 뒤에 채운다.
 const HAND = /손글씨|손 글씨|편안한/;
+// ---------- 사용법 안내(tour.js) ----------
+// 첫 화면: "사용법 보기" 단추(처음 온 기기에서는 살짝 반짝인다). 꾸미는 화면: 위 막대의 ? 단추.
+function tourButton(where, O = null) {
+  const home = where === 'home';
+  const btn = el('button', {
+    class: `btn ${home ? 'btn-ghost cv-tour-btn' : 'btn-ghost cv-tour-btn icon'}${home && !tourSeen('home') ? ' invite' : ''}`, type: 'button',
+    title: '사용법 보기', 'aria-label': '사용법 보기', dataset: { onbaTour: where },
+    onClick: () => {
+      markTourSeen(where);
+      btn.classList.remove('invite');
+      if (home) startTour({ steps: HOME_STEPS }); else editorTour(O);
+    },
+  }, el('span', { class: 'cv-tour-q', 'aria-hidden': 'true', text: '?' }), home ? el('span', { text: '사용법 보기' }) : null);
+  return btn;
+}
+// 꾸미는 화면의 안내: 단계마다 옆 칸에 그 도구를 펼친다(접혀 있으면 편다).
+function editorTour(O) {
+  startTour({
+    steps: EDITOR_STEPS,
+    show: (view) => {
+      if (O.closed) return;
+      const tab = O.editor.panel.querySelector(`.fe-tab[data-tab="${view}"]`);
+      if (!tab) return;
+      if (!tab.classList.contains('on')) tab.click();
+      else if (O.shell?.classList.contains('folded')) O.shell.querySelector('.cv-fold')?.click();
+    },
+  });
+}
+
 function heroShowcase() {
   const covers = layoutList().filter((l) => l.cover);
   if (!covers.length) return null;
@@ -325,7 +356,7 @@ function render() {
       el('p', { class: 'cv-hero-lead' }, '글·도형·사진으로 나답게 만들어요.', el('br'), '작은 카드부터 포스터, 발표 자료까지.'),
       el('ul', { class: 'cv-feats', 'aria-label': '만들 수 있는 것' }, ...FEATS.map(([pic, text, tone]) => el('li', { class: `cv-feat ${tone}` },
         el('span', { class: 'cv-feat-icon', 'aria-hidden': 'true' }, ic(pic)), el('span', { text })))),
-      el('div', { class: 'cv-hero-go' }, start,
+      el('div', { class: 'cv-hero-go' }, start, tourButton('home'),
         full ? el('p', { class: 'cv-hero-full', text: `그림은 ${MAX_DESIGNS}장까지 저장돼요. 안 쓰는 그림을 지워 주세요.` }) : null),
       el('p', { class: 'cv-hero-tag', text: `작은 생각도 멋진 작품이 되도록 · ${sync ? '내 계정에 자동 저장' : '이 기기에 자동 저장'}` })),
     heroShowcase()));
@@ -522,13 +553,18 @@ function openDesign(record, isNew) {
     ...(mark ? [mark, el('span', { class: 'cv-bar-sep cv-brand-sep', 'aria-hidden': 'true' })] : []),
     el('button', { class: 'btn btn-ghost cv-back', type: 'button', title: '저장하고 내 그림으로 돌아가요', onClick: (e) => closeDesign(O, e.currentTarget) }, ...face('back', '내 그림')),
     el('span', { class: 'cv-bar-sep', 'aria-hidden': 'true' }),
-    name, O.status, el('span', { class: 'cv-bar-gap' }), shapes, el('span', { class: 'cv-bar-sep', 'aria-hidden': 'true' }), show, down);
+    name, O.status, el('span', { class: 'cv-bar-gap' }), shapes, el('span', { class: 'cv-bar-sep', 'aria-hidden': 'true' }), tourButton('editor', O), show, down);
   const shell = editorShell(O, bar);
   markRatio(O, shapes);
   setView('edit');
   app.replaceChildren(shell);
   O.editor.refresh();                    // 화면에 놓은 뒤에 다시 그려서 테두리·손잡이의 자리를 맞춘다
   renderStrip(O);
+  // 처음 꾸미는 화면을 열면 사용법 안내를 한 번 보여 준다(이 기기에서 한 번). 언제든 ? 단추로 다시 본다.
+  if (!tourSeen('editor')) {
+    markTourSeen('editor');
+    setTimeout(() => { if (!O.closed && app.dataset.view === 'edit') editorTour(O); }, 700);
+  }
   window.scrollTo({ top: 0 });
 }
 
@@ -725,6 +761,7 @@ function applyMotionAll(O, motion) {
 // 아래 막대의 단추로 멈추거나 다시 틀 수 있다. 다른 장으로 넘어가면 멈춘다.
 function present(O) {
   if (videoBusy(O)) return;
+  stopTour();
   O.editor.quiet();          // 꾸미기 판에서 틀어 보던 영상을 멈추고 카메라를 끈다(발표 화면 뒤에서 소리가 나지 않게)
   // 그리는 것과 움직임의 차례가 같은 요소를 가리키도록, 정리한 디자인 하나로 둘 다 한다(그릴 때와 같은 방법으로 정리한다).
   const slides = currentSlides(O).map((d) => cleanDesign(d, { keepSpaces: true }));

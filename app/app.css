@@ -765,3 +765,64 @@ body.mc-app #app[data-view="home"] .cv-home > .cv-note { max-width: none; margin
 .mc-boot-mark svg { width: 34px; height: 34px; }
 @keyframes mc-breathe { 0%, 100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.07); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .mc-boot-mark { animation: none; } }
+
+/* ---------- 사용법 안내(tour.js) ---------- */
+.btn.cv-tour-btn { gap: 8px; border: 1px solid var(--cv-line, #dde5e1); background: #fff; color: var(--text); }
+.btn.cv-tour-btn.icon { order: 2; width: 40px; min-width: 40px; padding: 0; }
+.cv-tour-q { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; font-size: .8rem; font-weight: 800; line-height: 1; }
+.btn.cv-tour-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); }
+.btn.cv-tour-btn.invite { box-shadow: 0 0 0 0 rgba(40, 111, 98, .45); animation: onba-invite 1.8s ease-out infinite; }
+@keyframes onba-invite { 70% { box-shadow: 0 0 0 10px rgba(40, 111, 98, 0); } 100% { box-shadow: 0 0 0 0 rgba(40, 111, 98, 0); } }
+body.mc-app #app[data-view="home"] .cv-hero-go { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+
+/* 어둡게 덮는 네 조각과 비춘 틀. 비춘 자리는 덮지 않아 그대로 눌러 볼 수 있다. */
+.onba-tour-shade { position: fixed; inset: 0; z-index: 10000; pointer-events: none; }
+.onba-tour-shade > i { position: fixed; background: rgba(20, 30, 26, .6); pointer-events: auto; }
+.onba-tour-shade > b { position: fixed; box-sizing: border-box; border: 2px solid #e5af70; border-radius: 12px; pointer-events: none; animation: onba-tour-glow 2.4s ease-in-out infinite; }
+.onba-tour-shade > i, .onba-tour-shade > b { transition: left .42s cubic-bezier(.22, .7, .2, 1), top .42s cubic-bezier(.22, .7, .2, 1), width .42s cubic-bezier(.22, .7, .2, 1), height .42s cubic-bezier(.22, .7, .2, 1); }
+@keyframes onba-tour-glow { 0%, 100% { box-shadow: 0 0 0 3px rgba(229, 175, 112, .25), 0 0 12px rgba(229, 175, 112, .35); } 50% { box-shadow: 0 0 0 6px rgba(229, 175, 112, .4), 0 0 26px rgba(229, 175, 112, .55); } }
+.onba-tour { position: fixed; z-index: 10010; box-sizing: border-box; width: 380px; max-height: calc(100dvh - 24px); overflow: auto; padding: 16px 18px;
+  border: 1px solid #cfe0d9; border-radius: 18px; background: #fffdf8; color: #24322d; box-shadow: 0 16px 60px rgba(20, 30, 26, .35);
+  font: 14px/1.65 var(--font, system-ui); letter-spacing: -.02em; transition: left .42s cubic-bezier(.22, .7, .2, 1), top .42s cubic-bezier(.22, .7, .2, 1); }
+.onba-tour:focus { outline: none; }
+.onba-tour button { padding: 7px 11px; border: 1px solid #dde5e1; border-radius: 9px; background: #f5f2e9; color: inherit; font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.onba-tour button.primary { border-color: transparent; background: #286f62; color: #fff; }
+.onba-tour button:disabled { opacity: .45; cursor: default; }
+.onba-tour button:focus-visible { outline: 3px solid #e5af70; outline-offset: 2px; }
+.onba-tour-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .75rem; font-weight: 700; color: #286f62; }
+.onba-tour-top .onba-tour-x { width: 30px; height: 30px; padding: 0; border-radius: 50%; font-size: 1.1rem; line-height: 1; }
+.onba-tour-msg { display: flex; gap: 12px; align-items: flex-start; margin-top: 10px; animation: onba-tour-in .35s ease-out; }
+.onba-tour-msg img { flex: none; width: 52px; height: 52px; animation: onba-tour-float 3.2s ease-in-out infinite; }
+.onba-tour-msg h3 { margin: 0 0 6px; font-size: 1.08rem; line-height: 1.4; }
+.onba-tour-msg p { margin: 0; color: #4d5c56; font-size: .9rem; }
+.onba-tour-tip { display: block; margin-top: 9px; padding: 6px 9px; border-radius: 8px; background: #edf7f3; color: #205b50; font-size: .78rem; line-height: 1.55; }
+.onba-tour-steps { display: flex; gap: 4px; margin: 16px 0 10px; }
+.onba-tour-steps i { flex: 1; height: 3px; border-radius: 4px; background: #e3e9e6; }
+.onba-tour-steps i.done { background: #286f62; opacity: .45; }
+.onba-tour-steps i.now { position: relative; overflow: hidden; }
+.onba-tour-steps i.now::after { content: ''; position: absolute; inset: 0; background: #286f62; transform: scaleX(calc(1 - var(--onba-tour-left, 1))); transform-origin: left; }
+.onba-tour-play { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: .8rem; }
+.onba-tour-play [data-timer] { flex: 1; color: #6a7872; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.onba-tour-glasswrap { display: inline-flex; color: #286f62; }
+.onba-tour-glass { width: 18px; height: 23px; }
+.onba-tour-glass .frame { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.onba-tour-glass .sand-top, .onba-tour-glass .sand-bottom { fill: #e5af70; transform-box: fill-box; transform-origin: bottom; }
+.onba-tour-glass .sand-top { transform: scaleY(var(--onba-tour-left, 1)); }
+.onba-tour-glass .sand-bottom { transform: scaleY(calc(1 - var(--onba-tour-left, 1))); }
+.onba-tour-glass .sand-stream { stroke: #e5af70; stroke-width: 1.3; opacity: .2; }
+.onba-tour.playing .onba-tour-glass .sand-stream { opacity: 1; stroke-dasharray: 2 2; animation: onba-sand 1s linear infinite; }
+@keyframes onba-sand { to { stroke-dashoffset: -4; } }
+.onba-tour-nav { display: flex; align-items: center; gap: 8px; }
+.onba-tour-nav small { flex: 1; font-size: .7rem; line-height: 1.45; color: #6a7872; }
+@keyframes onba-tour-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes onba-tour-float { 50% { transform: translateY(-4px) rotate(-3deg); } }
+@media (max-width: 620px) {
+  .onba-tour { max-height: 55dvh; padding: 13px 14px; }
+  .onba-tour-msg img { width: 40px; height: 40px; }
+  .onba-tour-msg h3 { font-size: 1rem; }
+  .onba-tour-msg p { font-size: .84rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onba-tour, .onba-tour-shade > i, .onba-tour-shade > b { transition: none; }
+  .onba-tour-shade > b, .onba-tour-msg, .onba-tour-msg img, .onba-tour.playing .onba-tour-glass .sand-stream, .btn.cv-tour-btn.invite { animation: none; }
+}

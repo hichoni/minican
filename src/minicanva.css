@@ -616,3 +616,4 @@
 .fe-yt-row { flex-wrap: nowrap; }
 .fe-panel input.fe-yt-input, .fe-panel input.fe-yt-start { flex: 1 1 auto; min-width: 0; }
 .fe-panel input.fe-yt-start { max-width: 110px; }
+.fe-yt-row .fe-btn { flex: none; white-space: nowrap; }
