@@ -13,7 +13,7 @@ test('host home saves latest edits, waits for sync, and keeps unsaved work after
   const { chromium } = await import(pathToFileURL(process.env.MINICAN_PLAYWRIGHT_PATH).href);
   const root = fileURLToPath(new URL('../../', import.meta.url));
   const harness = `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
-    <link rel="stylesheet" href="/src/minicanva.css"><link rel="stylesheet" href="/app/app.css"><link rel="stylesheet" href="/app/brand.css">
+    <link rel="stylesheet" href="/src/editor.css"><link rel="stylesheet" href="/app/app.css"><link rel="stylesheet" href="/app/brand.css">
     <body class="mc-app"><main id="app"></main><script type="module">
       import { startMinican } from '/app/app.js';
       window.events = [];

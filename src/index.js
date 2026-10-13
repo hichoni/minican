@@ -1,8 +1,8 @@
-// minicanva — 작은 캔바식 꾸미기 편집기. 이 폴더만 옮기면 다른 프로젝트에서도 쓸 수 있다(바깥 라이브러리·빌드 없음).
+// 온바탕 편집기 — 글·도형·사진으로 꾸미는 작은 편집기. 이 폴더만 옮기면 다른 프로젝트에서도 쓸 수 있다(바깥 라이브러리·빌드 없음).
 // 쓰는 법은 같은 폴더의 README.md 와 demo.html 을 본다.
 //
-//   import { configure, createEditor, designView, registerFonts } from './minicanva/index.js';
-//   <link rel="stylesheet" href="./minicanva/minicanva.css">
+//   import { configure, createEditor, designView, registerFonts } from './onbatang/index.js';
+//   <link rel="stylesheet" href="./onbatang/editor.css">
 
 export { createEditor } from './editor.js';
 export { designView, itemView, shapeThumb, youTubePlayers } from './render.js';

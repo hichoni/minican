@@ -1,4 +1,4 @@
-// 미니캔바 배경 제거의 다듬기(cutout.js): AI 나 단색 방식이 낸 거친 윤곽을 사진의 진짜 테두리에 맞추고,
+// 온바탕 배경 제거의 다듬기(cutout.js): AI 나 단색 방식이 낸 거친 윤곽을 사진의 진짜 테두리에 맞추고,
 // 부스러기 · 구멍을 치우고, 붓질을 얹고, 가장자리에 묻은 배경색을 걷어 내는지 본다. 모두 브라우저 없이 도는 계산이다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -175,7 +175,7 @@ test('segment.toInput: 320×320 을 [3, 320, 320] 로, 가장 밝은 값으로 �
   assert.ok(Math.abs(x[2 * n + 5] - (1 - 0.406) / 0.225) < 1e-5);
 });
 
-test('모델 파일: 미니캔바 폴더 안에 있고 사용 조건이 적혀 있다', () => {
+test('모델 파일: 온바탕 폴더 안에 있고 사용 조건이 적혀 있다', () => {
   const dir = new URL('../src/models/', import.meta.url);
   assert.equal(statSync(new URL('u2netp.onnx', dir)).size, 4574861);
   const note = readFileSync(new URL('README.md', dir), 'utf8');

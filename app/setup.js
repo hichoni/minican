@@ -15,7 +15,7 @@ const cleanImage = (img) => (typeof img?.url === 'string' && img.url.length <= 3
 let fonts = [];
 let done = false;
 /**
- * 글꼴을 정한다(setupCanva 를 처음 부르기 전에 한 번). fonts: [{ id, name, desc?, url }] · titleFont: 템플릿의 큰 제목에 쓸 글꼴의 id.
+ * 글꼴을 정한다(setupApp 를 처음 부르기 전에 한 번). fonts: [{ id, name, desc?, url }] · titleFont: 템플릿의 큰 제목에 쓸 글꼴의 id.
  * 글꼴 파일은 들여 쓰는 곳이 가진 것만 쓴다(미니캔은 글꼴 파일을 싣지 않는다).
  */
 export function useFonts(list = [], titleFont = '') {
@@ -25,7 +25,7 @@ export function useFonts(list = [], titleFont = '') {
 }
 
 /** 한 번만 정한다. ratio 를 주면 그 비율로 맞춘다(그림을 열 때마다 부른다). */
-export function setupCanva(ratio = null) {
+export function setupApp(ratio = null) {
   if (!done) {
     done = true;
     // 사진은 긴 쪽 1280px 로 넣는다(크게 내려받아도 덜 흐리게).

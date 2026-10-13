@@ -1,6 +1,5 @@
-// minicanva 편집기. 캔바의 기본 쓰임새를 작게 옮겨 놓았다:
-//   옆 메뉴(템플릿·텍스트·요소·업로드·배경·레이어)에서 넣고 → 카드에서 누르고 끌어 옮기고 → 도구 막대에서 꾸민다.
-// 낱말도 캔바에서 쓰는 것(요소, 복제, 투명도, 위치, 배경 제거 …)을 그대로 써서, 여기서 익힌 것을 캔바에서 그대로 쓸 수 있게 했다.
+// 온바탕 편집기: 옆 칸에서 넣고 → 카드에서 누르고 끌어 옮기고 → 도구 막대에서 꾸민다.
+// 낱말은 초등학생이 바로 알아듣는 우리말로 쓴다(틀 · 글 · 꾸미기 · 내 자료 · 바탕 · 겹 순서 …).
 // 계산과 규칙은 model.js·cutout.js(순수 함수)에 있고, 여기는 화면과 손가락·마우스·키보드만 다룬다.
 // 저장소는 모른다: 사진을 어디에 올릴지는 uploadImage 로, 무엇이 바뀌었는지는 onChange 로 프로젝트가 정한다.
 import { el, toast } from './dom.js';
@@ -743,7 +742,7 @@ export function createEditor({
     remember();
     card.items = [...items(), placed];
     listChanged(card.items.length - 1);
-    // 텍스트는 바로 글을 쓸 수 있게(캔바처럼 글 전체가 골라진 채로), 나머지는 화살표 키로 옮길 수 있게.
+    // 텍스트는 바로 글을 쓸 수 있게(글 전체가 골라진 채로), 나머지는 화살표 키로 옮길 수 있게.
     if (placed.t === 'text' && edit) startEdit(true); else focusStage();
   }
 
@@ -812,7 +811,7 @@ export function createEditor({
     }
     addMany(regroup(made), failed ? fullNote(failed.t === 'image') : '');
   }
-  // 고른 것들을 한 그룹으로 묶는다 · 그룹을 푼다(캔바의 그룹 · 그룹 해제).
+  // 고른 것들을 한 그룹으로 묶는다 · 그룹을 푼다.
   function groupMany() {
     if (many.length < 2 || isGroup()) return;
     endEdit();
@@ -920,7 +919,7 @@ export function createEditor({
   }
 
   // ---------- 오른쪽 누르기 메뉴(터치는 길게 누르기) ----------
-  // 캔바처럼 요소 위에서 열면 그 요소에 할 일이, 빈 곳에서 열면 붙여넣기와 실행 취소가 나온다.
+  // 요소 위에서 열면 그 요소에 할 일이, 빈 곳에서 열면 붙여넣기와 실행 취소가 나온다.
   function closeMenu() {
     if (!menu) return;
     menu.node.remove();
@@ -1089,7 +1088,7 @@ export function createEditor({
     focusStage();
     // 템플릿 칸이 페이지와 함께 길게 스크롤되는 화면에서: 카드가 화면 밖에 있으면 바뀐 카드가 보이는 곳으로 간다.
     // 카드는 보이는데 묶음의 차례가 바뀌었고 칸의 머리가 위로 지나가 있으면, 칸의 머리(지금 테마의 묶음)로 간다.
-    // 위에 붙어 있는 띠가 있는 화면은 --fe-scroll-top 으로 그 높이를 알려 준다(minicanva.css).
+    // 위에 붙어 있는 띠가 있는 화면은 --fe-scroll-top 으로 그 높이를 알려 준다(editor.css).
     stage.scrollIntoView?.({ block: 'nearest' });
     if (reordered && panel.getBoundingClientRect().top < (parseFloat(getComputedStyle(panel).scrollMarginTop) || 0)) panel.scrollIntoView?.({ block: 'start' });
   }
@@ -1147,7 +1146,7 @@ export function createEditor({
     change({ x: to.x, y: to.y });
   }
 
-  // ---------- 카드 위에서 바로 글 고치기(캔바처럼) ----------
+  // ---------- 카드 위에서 바로 글 고치기 ----------
   function startEdit(selectAll = false) {
     const it = cur();
     const node = nodes[sel];
@@ -1339,7 +1338,7 @@ export function createEditor({
       ax, ay, at: [(ax - s.left) / (s.width || 1) * 100, (ay - s.top) / (s.height || 1) * 100], reach: Math.max(1, Math.hypot(e.clientX - ax, e.clientY - ay)),
     };
   }
-  // 여럿을 함께 옮기기 시작한다. tap: 끌지 않고 떼면 이것 하나만 고른다(캔바처럼).
+  // 여럿을 함께 옮기기 시작한다. tap: 끌지 않고 떼면 이것 하나만 고른다.
   function startGroup(e, tap) {
     e.preventDefault();
     endEdit();
@@ -1571,7 +1570,7 @@ export function createEditor({
     return res.blob();
   }
   // ---------- 올린 파일 목록 ----------
-  // configure({ maxUploads }) 가 1 이상이면 업로드 칸에 올린 파일들이 남는다: 눌러서 다시 넣고, 안 쓰는 것은 지운다(미리캔버스·캔바의 업로드 칸처럼).
+  // configure({ maxUploads }) 가 1 이상이면 업로드 칸에 올린 파일들이 남는다: 눌러서 다시 넣고, 안 쓰는 것은 지운다.
   // 목록은 저장소를 모른다: 프로젝트가 getUploads() 로 꺼내 디자인과 함께 저장하고, 편집기를 만들 때 uploads 로 다시 준다.
   const libraryOn = () => settings().maxUploads > 0;
   const sameUrl = (url) => (u) => u.url === url;
@@ -1989,7 +1988,7 @@ export function createEditor({
       return;
     }
     if (!it) {
-      // 아무것도 고르지 않았을 때(카드의 빈 곳을 눌렀을 때): 카드에 할 일인 배경색을 바로 보인다(캔바처럼).
+      // 아무것도 고르지 않았을 때(카드의 빈 곳을 눌렀을 때): 카드에 할 일인 배경색을 바로 보인다.
       const ink = el('span', { class: 'fe-ink' });
       ink.style.background = backgroundOf(card.bg).bg;
       bar.replaceChildren(...always,
@@ -3029,7 +3028,7 @@ export function createEditor({
 
   /**
    * 기본 짜임으로 host 안에 놓는다: 넓으면 도구 막대가 위에 길게, 그 아래 왼쪽에 카드·오른쪽에 옆 메뉴.
-   * 좁으면 카드 → 도구 막대 → 옆 메뉴 차례로 쌓인다(minicanva.css 의 .fe-app).
+   * 좁으면 카드 → 도구 막대 → 옆 메뉴 차례로 쌓인다(editor.css 의 .fe-app).
    */
   function mount(host) {
     host.classList.add('fe-app');

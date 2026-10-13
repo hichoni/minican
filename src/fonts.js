@@ -20,7 +20,7 @@ export function registerFonts(fonts) {
   }
   if (!rules.length) return;
   const style = document.createElement('style');
-  style.dataset.minicanva = 'fonts';
+  style.dataset.onbatang = 'fonts';
   style.textContent = rules.join('\n');
   document.head.append(style);
 }

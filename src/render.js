@@ -81,7 +81,7 @@ export function placeItem(node, item) {
 // 도형의 꾸밈: 모서리 둥글기(r) · 테두리(line, lc) · 속 비움(hollow). 정하지 않은 것은 CSS 의 기본 모양 그대로 둔다.
 // 둥글기와 테두리의 한도는 "짧은 변의 절반"을 따르므로 크기가 바뀔 때마다 다시 적는다(그래서 placeItem 이 부른다).
 // 하양에 가까운 색인가. 두 톤으로 그린 그림 요소는 밝은 면을 하양으로 얹는데, 바탕까지 하얘지면 그 면이 사라진다.
-// 그때는 밝은 면을 옅은 그늘로 바꿔 그린다(minicanva.css 의 .fi-shape.pale).
+// 그때는 밝은 면을 옅은 그늘로 바꿔 그린다(editor.css 의 .fi-shape.pale).
 const pale = (hex) => {
   const n = parseInt(String(hex).slice(1), 16);
   return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 >= 240;

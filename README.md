@@ -40,7 +40,7 @@
 들여 쓰는 법: `src/` 와 `app/` 을 같은 폴더에 나란히 두고(`app/` 은 `../src/` 를 가져와요), `app/index.html` 을 본떠 쪽 하나를 만들어요.
 
 ```html
-<link rel="stylesheet" href="./src/minicanva.css" />
+<link rel="stylesheet" href="./src/editor.css" />
 <link rel="stylesheet" href="./app/app.css" />
 <body class="mc-app">
   <main id="app"></main>
@@ -80,7 +80,7 @@ sync = {
 2. 쓰는 화면에 스타일을 넣어요. **편집 화면뿐 아니라 디자인을 보여 주기만 하는 화면에도** 넣어야 해요.
 
 ```html
-<link rel="stylesheet" href="./minican/minicanva.css" />
+<link rel="stylesheet" href="./minican/editor.css" />
 ```
 
 `file://` 로 열면 모듈을 못 읽어요. `python -m http.server` 같은 작은 서버로 열어요.
@@ -210,7 +210,7 @@ registerFonts(fonts);          // 글꼴 파일을 브라우저에 알려요(실
 `mount()` 는 이대로 해 줘요. 머리말이 화면 위에 붙어 있는 프로젝트라면 `--fe-sticky-top` 에 그 높이를 주세요.
 직접 짠 화면에서 옆 메뉴가 페이지와 함께 길게 스크롤된다면, 위에 붙어 있는 띠(머리말 + 도구 막대)가 차지하는 높이를 `--fe-scroll-top` 에 주세요. 템플릿을 넣은 뒤 카드와 옆 메뉴를 보이는 곳으로 데려올 때 그 띠 아래에 오게 해요.
 
-### 올린 파일 목록(미리캔버스·캔바의 업로드 칸처럼)
+### 올린 파일 목록
 
 `configure({ maxUploads: 20 })` 처럼 켜면 업로드 칸에 올린 파일들이 남아요. 누르면 카드에 놓이고, 휴지통으로 지워요(한 번 더 물어요).
 편집기는 저장소를 몰라요. 목록을 디자인과 함께 저장했다가 다시 주는 것은 프로젝트의 몫이에요.
@@ -521,7 +521,7 @@ const length = filmPlan(designs.map((d) => cleanDesign(d, { keepSpaces: true }))
 | `images.js` | 사진 줄이기, 픽셀 읽기 | 예 |
 | `fonts.js` | 글꼴 파일 알리기 | 예 |
 | `dom.js` | 요소 만들기, 알림 | 예 |
-| `minicanva.css` | 스타일 전부 | — |
+| `editor.css` | 스타일 전부 | — |
 
 `index.js` 의 내보내기: `createEditor`, `designView`, `designToBlob`, `designToCanvas`, `itemView`, `configure`, `settings`, `registerFonts`, `fontReady`,
 `cleanDesign`, `emptyDesign`, `designTexts`, `designImages`, `shrinkImage`, `removeBackground`, `refineCutout`, `searchStickers`, `toast`,

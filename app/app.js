@@ -24,7 +24,7 @@ import {
 import { saveVideo, listVideos, removeVideos } from './videos.js';
 import { zipStore } from './zip.js';
 import { listDesigns, getDesign, putDesign, removeDesign, setStorageName } from './store.js';
-import { setupCanva, useFonts, photoToData, BASIC_GROUP } from './setup.js';
+import { setupApp, useFonts, photoToData, BASIC_GROUP } from './setup.js';
 import { mergeAccount, createPusher } from './sync.js';
 
 let app = null;
@@ -242,7 +242,7 @@ function startNew(layoutId = '', tile = null) {
   const layout = layoutId ? layoutList().find((l) => l.id === layoutId) : null;
   const record = newRecord(layout?.ratio || lastRatio(), nextNumber(S.list || []));
   if (layout) {
-    setupCanva(record.ratio);          // 템플릿의 도형 높이는 그림의 모양에 맞춰 만들어진다
+    setupApp(record.ratio);          // 템플릿의 도형 높이는 그림의 모양에 맞춰 만들어진다
     record.slides = [{ bg: layout.bg, items: layoutItems(layout.id) }];
   }
   // 작은 그림과 새 그림의 모양이 같을 때에만 그 그림을 키워서 연다(모양이 다르면 찌그러져 보인다).
@@ -346,10 +346,10 @@ function render() {
   const newBtn = (cls) => el('button', { class: `btn ${cls}`, type: 'button', disabled: loading || full, onClick: () => startNew() }, ic('plus'), el('span', { text: '새 그림 만들기' }));
 
   // ① 대문: 왼쪽은 이름 · 한 줄 소개 · 만들 수 있는 것 · 시작 단추, 오른쪽은 꾸미는 화면을 본뜬 그림(실제 템플릿과 그림 묶음으로 그린다).
-  const title = el('h1', { id: 'canva-title', class: 'cv-home-title' }, onbatangLogo());
+  const title = el('h1', { id: 'onba-title', class: 'cv-home-title' }, onbatangLogo());
   const start = el('button', { class: 'btn cv-cta cv-new-btn', type: 'button', disabled: loading || full, onClick: () => startNew() },
     el('span', { text: '내 생각 펼치기' }), ic('right'));
-  const hero = el('section', { class: 'cv-hero', 'aria-labelledby': 'canva-title' }, el('div', { class: 'cv-hero-in' },
+  const hero = el('section', { class: 'cv-hero', 'aria-labelledby': 'onba-title' }, el('div', { class: 'cv-hero-in' },
     el('div', { class: 'cv-hero-text' },
       el('div', { class: 'cv-home-heading' }, title),
       el('p', { class: 'cv-hero-kicker' }, '생각을 펼치는', el('br'), el('span', { class: 'cv-kick-color', text: '따뜻한 디자인 공간.' })),
@@ -362,13 +362,13 @@ function render() {
     heroShowcase()));
 
   // 템플릿은 소개 카드 아래의 같은 본문 폭에서 골라 바로 시작한다.
-  const track = el('div', { id: 'canva-template-list', class: `cv-start-list ${startTab}`, dataset: { starts: startTab }, role: 'group', 'aria-label': `${STARTS.find(([id]) => id === startTab)[1]} 템플릿` }, ...starts.map(([l, name]) => el('button', {
+  const track = el('div', { id: 'onba-template-list', class: `cv-start-list ${startTab}`, dataset: { starts: startTab }, role: 'group', 'aria-label': `${STARTS.find(([id]) => id === startTab)[1]} 템플릿` }, ...starts.map(([l, name]) => el('button', {
     class: 'cv-start', type: 'button', disabled: loading || full, dataset: { layout: l.id }, onClick: (e) => startNew(l.id, e.currentTarget),
   }, el('span', { class: 'cv-start-view', 'aria-hidden': 'true' }, layoutThumb(l)), el('b', { text: name }))));
-  const previous = el('button', { class: 'cv-start-arrow cv-start-prev', type: 'button', disabled: true, 'aria-label': '이전 템플릿 보기', 'aria-controls': 'canva-template-list', title: '이전 템플릿 보기' }, ic('left'));
-  const next = el('button', { class: 'cv-start-arrow cv-start-next', type: 'button', 'aria-label': '다음 템플릿 보기', 'aria-controls': 'canva-template-list', title: '다음 템플릿 보기' }, ic('right'));
-  const templates = el('section', { class: 'cv-starts', 'aria-labelledby': 'canva-templates' },
-      el('div', { class: 'cv-starts-head' }, el('h2', { id: 'canva-templates', text: '템플릿으로 시작하기' }),
+  const previous = el('button', { class: 'cv-start-arrow cv-start-prev', type: 'button', disabled: true, 'aria-label': '이전 템플릿 보기', 'aria-controls': 'onba-template-list', title: '이전 템플릿 보기' }, ic('left'));
+  const next = el('button', { class: 'cv-start-arrow cv-start-next', type: 'button', 'aria-label': '다음 템플릿 보기', 'aria-controls': 'onba-template-list', title: '다음 템플릿 보기' }, ic('right'));
+  const templates = el('section', { class: 'cv-starts', 'aria-labelledby': 'onba-templates' },
+      el('div', { class: 'cv-starts-head' }, el('h2', { id: 'onba-templates', text: '템플릿으로 시작하기' }),
         el('div', { class: 'cv-starts-tools' },
         el('div', { class: 'cv-seg', role: 'group', 'aria-label': '템플릿 종류' }, ...STARTS.map(([id, name]) => el('button', {
           class: `cv-seg-btn${startTab === id ? ' on' : ''}`, type: 'button', 'aria-pressed': String(startTab === id), dataset: { starts: id },
@@ -423,7 +423,7 @@ function fitView(view, aspect) {
   return view;
 }
 function thumb(record) {
-  setupCanva();
+  setupApp();
   return fitView(designView(record.slides[0], { empty: '빈 그림' }), ratioOf(record.ratio).aspect);
 }
 function itemCard(record) {
@@ -483,7 +483,7 @@ async function openEntry(entry, btn) {
 
 // ---------- 꾸미기 ----------
 function openDesign(record, isNew) {
-  setupCanva(record.ratio);
+  setupApp(record.ratio);
   const O = {
     record: { ...record }, timer: 0, dirty: false, saved: !isNew, closed: false, editor: null, status: null, nameInput: null,
     // 슬라이드: slides 는 모든 장, at 은 지금 꾸미는 장의 번호. 편집기는 한 번에 한 장만 꾸민다(장을 바꿀 때 바꿔 끼운다).
@@ -1426,7 +1426,7 @@ export function startMinican({ root = document.getElementById('app'), fonts = []
   }
   setStorageName(storage);
   useFonts(fonts, titleFont);
-  setupCanva();
+  setupApp();
   window.addEventListener('pagehide', flush);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
   S.phase = 'boot';

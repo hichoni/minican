@@ -231,7 +231,7 @@ function end(a) {
 }
 
 /** 템플릿 목록(편집기의 configure({ layouts }) 에 넘긴다). id 와 이름은 예전과 같다. */
-export const CANVA_LAYOUTS = [
+export const BASIC_LAYOUTS = [
   { id: 'cover', name: '표지', bg: 'navy', items: cover },
   { id: 'band', name: '띠 제목', bg: 'paper', items: band },
   { id: 'list', name: '세 가지', bg: 'sky', items: list },

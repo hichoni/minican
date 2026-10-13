@@ -257,7 +257,7 @@ export function webmParts({ codec, width, height, fps = 30, samples, color = nul
   const last = samples.at(-1);
   const lastSound = sound ? sound.samples.at(-1) : null;
   const codes = colorCodes(color);
-  const info = el(0x1549a966, el(0x2ad7b1, uint(1000000)), el(0x4d80, text('minicanva')), el(0x5741, text('minicanva')),
+  const info = el(0x1549a966, el(0x2ad7b1, uint(1000000)), el(0x4d80, text('onbatang')), el(0x5741, text('onbatang')),
     el(0x4489, float64(Math.max(last.ts + last.dur, lastSound ? lastSound.ts + lastSound.dur : 0) / 1000)));
   const tracks = el(0x1654ae6b, el(0xae,
     el(0xd7, uint(1)), el(0x73c5, uint(1)), el(0x9c, uint(0)), el(0x22b59c, text('und')), el(0x86, text(codecId)), el(0x83, uint(1)),

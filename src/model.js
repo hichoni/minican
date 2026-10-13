@@ -1,4 +1,4 @@
-// minicanva 의 규칙(모델): 카드 위에 놓는 요소(텍스트·그래픽·도형·사진)의 모양과 정리, 끌기·크기·돌리기 계산, 템플릿.
+// 온바탕 편집기의 규칙(모델): 카드 위에 놓는 요소(텍스트·그래픽·도형·사진)의 모양과 정리, 끌기·크기·돌리기 계산, 템플릿.
 // (발표할 때의 움직임 규칙은 motion.js 에 따로 있다. 여기서는 그 값을 정리해 주기만 한다.)
 // DOM 도 저장소도 쓰지 않는 순수 함수만 둔다. 그래서 node 에서 그대로 테스트할 수 있고, 어떤 프로젝트에도 옮겨 쓸 수 있다.
 //
@@ -145,7 +145,7 @@ export const SHAPES = SHAPE_ASSETS.map(({ id, name, group }) => ({ id, name, gro
 
 export const ALIGNS = ['l', 'c', 'r'];
 export const TEXT_SIZE = { min: 2.5, max: 30 };
-/** 투명도: 100 이면 또렷하고, 낮을수록 비쳐 보인다(캔바의 "투명도"와 같다). 아예 안 보이면 다시 고르기 어려워 10 까지만. */
+/** 투명도: 100 이면 또렷하고, 낮을수록 비쳐 보인다. 아예 안 보이면 다시 고르기 어려워 10 까지만. */
 export const OPACITY = { min: 10, max: 100 };
 /** 사진의 테두리 모양. */
 export const MASKS = [
@@ -155,10 +155,10 @@ export const MASKS = [
 ];
 /**
  * 도형의 테두리 굵기(카드 너비를 100 으로 본 값). 막대는 1~10 단계이고 한 단계가 step 이다. base 는 처음 두를 때의 굵기.
- * 굵기는 요소를 키우거나 줄여도 그대로다(캔바·파워포인트처럼).
+ * 굵기는 요소를 키우거나 줄여도 그대로다.
  */
 export const EDGE = { min: 0.4, max: 4, step: 0.4, base: 1.2 };
-// 모서리 둥글기를 정하지 않은 둥근 네모는 예전처럼 카드 너비의 4% 로 둥글다(minicanva.css 의 .sh-round).
+// 모서리 둥글기를 정하지 않은 둥근 네모는 예전처럼 카드 너비의 4% 로 둥글다(editor.css 의 .sh-round).
 const OLD_ROUND = 4;
 const SIZE = { min: 2, max: 140 };
 const PHOTO_MIN = 5;
@@ -229,7 +229,7 @@ export function cleanItem(item, { keepSpaces = false } = {}) {
   };
   // 이름표(id)는 있을 때만 남긴다: 여럿이 함께 꾸미는 프로젝트가 요소를 가려낼 때 쓴다(틴커랩 미니캔의 "함께 만드는 그림"). 혼자 쓰는 그림에는 없다.
   if (typeof it.id === 'string' && /^[a-z][a-z0-9]{5,31}$/.test(it.id)) base.id = it.id;
-  // 그룹(g): 같은 표를 단 요소들은 한 번에 고르고 함께 옮긴다(캔바의 "그룹"). 그룹으로 묶었을 때만 적는다.
+  // 그룹(g): 같은 표를 단 요소들은 한 번에 고르고 함께 옮긴다. 그룹으로 묶었을 때만 적는다.
   if (typeof it.g === 'string' && GROUP_ID.test(it.g)) base.g = it.g;
   // 움직임(발표할 때)은 정했을 때만 적는다. an: 나타나는 효과(또는 'none' = 가만히) · aw: 누를 때 나타난다(motion.js).
   if (ENTER_IDS.includes(it.an) || it.an === STILL) base.an = it.an;
@@ -691,7 +691,7 @@ export function scaleItems(items, k, ax, ay) {
 }
 
 /**
- * 여럿을 서로에게 맞춰 정렬할 때 각자의 새 가운데(캔바의 "여럿 고르고 정렬"). boxes: [{ x, y, hw, hh }]
+ * 여럿을 서로에게 맞춰 정렬할 때 각자의 새 가운데. boxes: [{ x, y, hw, hh }]
  * (가운데와, 화면에서 잰 반너비·반높이. 모두 카드 너비·높이를 100 으로 본 값). 고른 것들을 감싸는 상자의 그 변(가운데)에 맞춘다.
  * where: 'left' · 'center' · 'right'(가로) · 'top' · 'middle' · 'bottom'(세로). 돌려주는 것: [{ x, y }] (받은 차례대로).
  */
@@ -790,7 +790,7 @@ export function fitPhoto(img) {
   return photoIn(img, 100);
 }
 
-// ---------- 텍스트 종류(캔바의 "제목 추가 · 부제목 추가 · 본문 추가") ----------
+// ---------- 텍스트 종류(제목 · 소제목 · 본문) ----------
 
 export const TEXT_PRESETS = [
   { id: 'title', name: '제목 추가', text: '제목을 써요', size: 11, bold: true },
@@ -802,7 +802,7 @@ export function newPresetText(id, extra = {}) {
   return newText(p.text, { size: p.size, bold: p.bold, ...extra });
 }
 
-// ---------- 템플릿(캔바의 "템플릿"처럼, 눌러서 시작하는 짜임) ----------
+// ---------- 틀(눌러서 시작하는 짜임) ----------
 // 글은 모두 안내 글이다. 그대로 두고 올리면 점검에서 알려 준다(PLACEHOLDER_TEXTS).
 
 const T = (text, extra) => ({ t: 'text', text, ...extra });

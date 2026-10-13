@@ -404,7 +404,7 @@ export const THEME_RATIO = '16:9';
  * 테마의 템플릿들(편집기의 configure({ layouts }) 에 기본 템플릿과 함께 넘긴다). 테마 하나가 묶음 하나다(group = 테마 이름).
  * cover 가 참인 것이 첫 화면의 "주제 테마"에 나온다. ratio 는 첫 화면에서 그것으로 시작할 때의 그림 모양.
  */
-export const CANVA_THEMES = THEMES.flatMap((t) => [
+export const THEME_LAYOUTS = THEMES.flatMap((t) => [
   { id: t.id, name: '표지', group: t.name, cover: true, ratio: THEME_RATIO, bg: t.bg, items: (a) => cover(t, a) },
   { id: `${t.id}-page`, name: '내용', group: t.name, ratio: THEME_RATIO, bg: t.bg, items: (a) => page(t, a) },
 ]);

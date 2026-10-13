@@ -1,4 +1,4 @@
-/* 미니캔 앱의 바탕: 글자·단추·창(모달)·알림의 기본 모양과 색 값. 앱의 화면 짜임은 이 아래에, 편집기의 모양은 src/minicanva.css 에 있다.
+/* 미니캔 앱의 바탕: 글자·단추·창(모달)·알림의 기본 모양과 색 값. 앱의 화면 짜임은 이 아래에, 편집기의 모양은 src/editor.css 에 있다.
    이 파일은 미니캔 앱 한 쪽(app/index.html, 또는 그것을 본뜬 쪽)에서만 쓴다: html · body 같은 요소 전체에 규칙을 건다. */
 body.mc-app {
   --bg: #f3f5fb; --card: #ffffff; --text: #1d2433; --muted: #5a6376; --line: #dde2ef;
@@ -70,8 +70,8 @@ input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px
   .btn { transition: none !important; transform: none !important; }
 }
 
-/* 미니캔 앱의 화면 — 편집기의 모양은 모듈(src/minicanva.css)에 있고, 여기는 화면의 짜임을 맡는다.
-   첫 화면: 공통 메뉴 → 소개 카드 → 템플릿 → 내 그림(canva-home.css).
+/* 미니캔 앱의 화면 — 편집기의 모양은 모듈(src/editor.css)에 있고, 여기는 화면의 짜임을 맡는다.
+   첫 화면: 공통 메뉴 → 소개 카드 → 템플릿 → 내 그림.
    꾸미는 화면: 넓은 화면에서는 창을 꽉 채운다(위 막대 · 왼쪽 도구 줄과 옆 칸 · 가운데 그림 · 아래 슬라이드 띠, 스크롤 없음).
                좁은 화면(900px 미만)이나 낮은 화면에서는 위에서 아래로 쌓인다(위 막대 → 그림 → 슬라이드 → 도구 막대 → 넣을 것).
    색: 밤하늘 남색(--cv-ink)은 띠와 도구 줄에만, 노랑(--cv-sun)은 "새 그림 만들기"와 고른 도구 표시에만 쓴다. 나머지는 흰색과 옅은 회색.
@@ -98,7 +98,7 @@ body.mc-app {
 .cv-app .fe-picker { padding: 8px; background: #f7f8fb; }
 .cv-app .fe-sep { width: 1px; }
 
-/* 편집기는 창의 너비를 다 쓴다. 첫 화면의 공통 본문 폭은 canva-home.css 에서 정한다. */
+/* 편집기는 창의 너비를 다 쓴다. 첫 화면의 공통 본문 폭은 아래 첫 화면 규칙에서 정한다. */
 body.mc-app #app[data-view="home"], body.mc-app #app[data-view="edit"] { max-width: none; padding: 0; }
 
 /* ---- 첫 화면 ① 남색 띠: 소개 + 새로 만들기 | 템플릿 ---- */

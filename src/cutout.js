@@ -89,7 +89,7 @@ export function removeBackground(data, w, h, { tolerance = TOLERANCE.start, insi
 }
 
 // ======================================================================
-// 정교한 배경 제거(2026-10-13). remove.bg · 캔바의 배경 제거처럼
+// 정교한 배경 제거(2026-10-13)
 //   ① 주인공을 찾고(AI 모델 segment.js, 또는 단색 배경이면 colorAlpha)
 //   ② 거친 윤곽을 사진의 실제 경계에 맞춰 붙이고(snapEdges — 둘레의 주인공 색 · 배경색으로 가르기,
 //      guidedFilter — 밝기가 바뀌는 곳을 따라 머리카락·털 같은 가는 경계까지)

@@ -1,4 +1,4 @@
-// minicanva 모듈을 "혼자" 쓸 때의 점검: 기본 설정, configure 로 바꾸기, 카드 비율 계산, 그리고 폴더 밖의 것을 쓰지 않는지.
+// 온바탕 편집기 모듈(src/)을 "혼자" 쓸 때의 점검: 기본 설정, configure 로 바꾸기, 카드 비율 계산, 그리고 폴더 밖의 것을 쓰지 않는지.
 // (카드뉴스 공방의 설정을 얹은 쪽은 digital-cardnews-studio.test.mjs 가 본다. 테스트 파일마다 따로 돌기 때문에 여기는 기본 설정에서 시작한다.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -251,7 +251,7 @@ test('configure — 카드 비율: 도형은 모양을, 사진은 가로세로 �
 
 test('옮겨 쓰기: 모듈의 어떤 파일도 폴더 밖의 것을 가져오지 않는다', () => {
   const files = readdirSync(DIR);
-  for (const need of ['index.js', 'model.js', 'editor.js', 'render.js', 'export.js', 'images.js', 'fonts.js', 'dom.js', 'cutout.js', 'stickers.js', 'minicanva.css']) {
+  for (const need of ['index.js', 'model.js', 'editor.js', 'render.js', 'export.js', 'images.js', 'fonts.js', 'dom.js', 'cutout.js', 'stickers.js', 'editor.css']) {
     assert.ok(files.includes(need), `${need} 가 있어야 한다`);
   }
   // 이 저장소에서는 설명서와 시연 화면이 src/ 바깥(저장소 맨 위, demo/)에 있다.
@@ -268,7 +268,7 @@ test('옮겨 쓰기: 모듈의 어떤 파일도 폴더 밖의 것을 가져오�
     }
     assert.doesNotMatch(src, /firebase|gstatic|googleapis/i, `${name}: 저장소는 모듈 밖에서 연결한다`);
   }
-  const css = readFileSync(DIR + 'minicanva.css', 'utf8');
+  const css = readFileSync(DIR + 'editor.css', 'utf8');
   assert.doesNotMatch(css, /@import|url\(/, 'CSS 도 바깥 파일을 부르지 않는다');
   // 프로젝트의 색 변수에 기대지 않는다(--fe- 로 시작하는 것만 쓴다)
   const vars = new Set([...css.matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]));

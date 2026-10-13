@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>미니캔 시연</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8E%A8%3C/text%3E%3C/svg%3E">
-  <meta name="description" content="minicanva 모듈을 다른 것 없이 혼자 띄운 데모. 꾸민 것은 이 브라우저에만 저장돼요." />
+  <meta name="description" content="온바탕 편집기 모듈을 다른 것 없이 혼자 띄운 데모. 꾸민 것은 이 브라우저에만 저장돼요." />
   <!-- 모듈의 스타일은 이 한 줄이면 된다 -->
-  <link rel="stylesheet" href="../src/minicanva.css" />
+  <link rel="stylesheet" href="../src/editor.css" />
   <style>
     /* 여기부터는 이 데모 페이지의 꾸밈일 뿐, 모듈과는 상관없다. */
     * { box-sizing: border-box; }
@@ -78,7 +78,7 @@
     for (const a of document.querySelectorAll('[data-ratio]')) a.classList.toggle('on', a.dataset.ratio === ratioName);
 
     // ③ 저장: 이 데모는 브라우저(localStorage)에 둔다. 실제 프로젝트에서는 onChange 에서 서버로 보내면 된다.
-    const KEY = `minicanva.demo.${ratioName}`;
+    const KEY = `onbatang.demo.${ratioName}`;
     let design = null;
     try { design = JSON.parse(localStorage.getItem(KEY)); } catch { /* 처음이면 없다 */ }
 

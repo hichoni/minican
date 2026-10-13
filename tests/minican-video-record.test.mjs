@@ -29,7 +29,7 @@ globalThis.document = {
   },
 };
 // 틀면서 녹화할 수 있는 브라우저(canvas.captureStream 이 있다). 한 장씩 인코딩하는 것(VideoEncoder)은 없는 브라우저로 둔다:
-// 그 길은 tests/minicanva-video-encode.test.mjs 가 본다.
+// 그 길은 tests/minican-video-encode.test.mjs 가 본다.
 globalThis.HTMLCanvasElement = class { captureStream() {} };
 let urlId = 0;
 URL.createObjectURL = (blob) => { const url = `blob:fake/${++urlId}`; blobOf.set(url, blob); return url; };

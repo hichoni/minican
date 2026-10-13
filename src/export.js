@@ -25,8 +25,8 @@ const xmlSafe = (s) => String(s)
 let cssJob = null;
 /** 모듈의 스타일 글(한 번만 받아 둔다). */
 function moduleCss() {
-  cssJob ||= fetch(new URL('./minicanva.css', import.meta.url)).then((res) => {
-    if (!res.ok) throw new Error(`minicanva.css 를 받지 못했어요 (${res.status})`);
+  cssJob ||= fetch(new URL('./editor.css', import.meta.url)).then((res) => {
+    if (!res.ok) throw new Error(`editor.css 를 받지 못했어요 (${res.status})`);
     return res.text();
   }).catch((ex) => { cssJob = null; throw ex; });
   return cssJob;

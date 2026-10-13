@@ -13,7 +13,7 @@ const samplesOf = (n, more) => Array.from({ length: n }, (_, i) => sample(i, mor
 const AVCC = Uint8Array.from([1, 0x64, 0, 0x28, 0xff, 0xe1, 0, 4, 0x67, 0x64, 0, 0x28, 1, 0, 2, 0x68, 0xee]);
 const ascii = (b) => String.fromCharCode(...b);
 // 머리말의 지문: [MP4 머리말의 길이, 지문, WebM 머리말의 길이, 지문] (맨 아래의 테스트가 쓴다)
-const GOLDEN = [680, '8134ef47a3f9fbb9', 172, '0dc57239b70d089a'];
+const GOLDEN = [680, '8134ef47a3f9fbb9', 170, '10d38b092b4bc17f'];   // WebM: 만든 프로그램 이름을 'onbatang' 으로 바꾼 뒤 진짜 VP9 조각으로 ffmpeg 재생을 다시 확인함(2026-10-14)
 
 // ---------- MP4 읽기 ----------
 const KIDS = new Set(['moov', 'trak', 'mdia', 'minf', 'dinf', 'stbl']);

@@ -1,4 +1,4 @@
-// 작은 DOM 도우미: 요소 만들기와 잠깐 떴다 사라지는 알림. minicanva 는 다른 라이브러리 없이 이것만 쓴다.
+// 작은 DOM 도우미: 요소 만들기와 잠깐 떴다 사라지는 알림. 온바탕 편집기는 다른 라이브러리 없이 이것만 쓴다.
 
 /** 요소를 만든다. attrs: class · text · dataset · on<Event> · 그 밖의 속성. children: 요소나 글(null 은 건너뛴다). */
 export function el(tag, attrs = {}, ...children) {
